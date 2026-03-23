@@ -98,7 +98,20 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Footer */}
+      {/* FAQs */}
+      <section className="px-6 pb-24 max-w-[800px] mx-auto">
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <h2 className="text-2xl font-bold text-foreground text-center mb-2">Frequently Asked Questions</h2>
+          <p className="text-sm text-muted-foreground text-center mb-8">Everything you need to know about FinanceAI</p>
+          <FAQSection faqs={landingFAQs} />
+        </motion.div>
+      </section>
+
       <footer className="border-t border-border px-6 py-8">
         <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-xs text-muted-foreground">© 2026 FinanceAI. All rights reserved.</p>
