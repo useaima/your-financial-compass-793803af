@@ -23,6 +23,7 @@ export type Database = {
           last_name: string
           updated_at: string
           updates_opt_in: boolean
+          user_type: string
         }
         Insert: {
           country?: string
@@ -32,6 +33,7 @@ export type Database = {
           last_name?: string
           updated_at?: string
           updates_opt_in?: boolean
+          user_type?: string
         }
         Update: {
           country?: string
@@ -41,6 +43,7 @@ export type Database = {
           last_name?: string
           updated_at?: string
           updates_opt_in?: boolean
+          user_type?: string
         }
         Relationships: []
       }
