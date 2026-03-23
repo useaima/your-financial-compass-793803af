@@ -2,6 +2,8 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import { TrendingUp, Brain, Shield, Target, ArrowRight, Sparkles } from "lucide-react";
+import FAQSection from "@/components/FAQSection";
+import { landingFAQs } from "@/data/faqData";
 
 const features = [
   { icon: Brain, title: "AI-Powered Insights", desc: "Get personalized financial advice from your intelligent advisor, 24/7." },
