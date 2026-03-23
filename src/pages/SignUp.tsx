@@ -54,6 +54,7 @@ export default function SignUp() {
     form.firstName.trim() &&
     form.lastName.trim() &&
     form.country &&
+    form.userType &&
     isValidEmail &&
     allPasswordRulesMet &&
     passwordsMatch &&
