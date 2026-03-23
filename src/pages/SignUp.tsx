@@ -160,6 +160,38 @@ export default function SignUp() {
           </div>
 
           <div className="space-y-4">
+            {/* User Type */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">Account type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => update("userType", "personal")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors",
+                    form.userType === "personal"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/30"
+                  )}
+                >
+                  <User className="w-5 h-5" />
+                  <span className="text-xs font-medium">Personal</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => update("userType", "enterprise")}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors",
+                    form.userType === "enterprise"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/30"
+                  )}
+                >
+                  <Building2 className="w-5 h-5" />
+                  <span className="text-xs font-medium">Enterprise</span>
+                </button>
+              </div>
+            </div>
             {/* Name */}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
