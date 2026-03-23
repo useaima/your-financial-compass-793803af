@@ -26,6 +26,7 @@ export default function Settings() {
     firstName: "",
     lastName: "",
     country: "",
+    userType: "personal",
     updatesOptIn: false,
   });
 
