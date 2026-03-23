@@ -43,6 +43,7 @@ export default function Settings() {
             firstName: data.first_name,
             lastName: data.last_name,
             country: data.country,
+            userType: (data as any).user_type || "personal",
             updatesOptIn: data.updates_opt_in,
           });
         }
