@@ -1,9 +1,11 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Sparkles, Loader2, RefreshCw, TrendingUp, TrendingDown, Building2, CreditCard, DollarSign, ArrowDown, ArrowUp } from "lucide-react";
+import { Sparkles, Loader2, RefreshCw, TrendingUp, TrendingDown, Building2, CreditCard, ArrowDown, ArrowUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import ManualEntryForm from "@/components/financial/ManualEntryForm";
+import CashflowDiagram from "@/components/financial/CashflowDiagram";
 
 type IncomeItem = { name: string; amount: number; description?: string };
 type ExpenseItem = { name: string; amount: number; category: string };
@@ -35,6 +37,8 @@ const liabilityTypeIcons: Record<string, string> = {
 export default function FinancialStatement() {
   const [data, setData] = useState<FinancialStatementData | null>(null);
   const [loading, setLoading] = useState(false);
+  const [manualAssets, setManualAssets] = useState<AssetItem[]>([]);
+  const [manualLiabilities, setManualLiabilities] = useState<LiabilityItem[]>([]);
 
   const generate = async () => {
     setLoading(true);
@@ -50,6 +54,16 @@ export default function FinancialStatement() {
     }
   };
 
+  const allAssets = [...(data?.assets || []), ...manualAssets];
+  const allLiabilities = [...(data?.liabilities || []), ...manualLiabilities];
+  const totalAssetValue = allAssets.reduce((s, a) => s + a.value, 0);
+  const totalLiabilityBalance = allLiabilities.reduce((s, l) => s + l.balance, 0);
+  const manualPassiveIncome = manualAssets.reduce((s, a) => s + a.cashflow, 0);
+  const manualPayments = manualLiabilities.reduce((s, l) => s + l.payment, 0);
+  const totalPassiveIncome = (data?.passive_income || 0) + manualPassiveIncome;
+  const adjustedCashflow = (data?.monthly_cashflow || 0) + manualPassiveIncome - manualPayments;
+  const netWorth = totalAssetValue - totalLiabilityBalance;
+
   if (!data && !loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center gap-6">
@@ -60,14 +74,11 @@ export default function FinancialStatement() {
           <h1 className="text-2xl font-bold tracking-tight">CASHFLOW Financial Statement</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
             Generate your personal financial statement in the style of Rich Dad's CASHFLOW game.
-            See your income, expenses, assets, and liabilities — and understand your monthly cash flow.
           </p>
-          <button
-            onClick={generate}
+          <button onClick={generate}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
           >
-            <Sparkles className="w-4 h-4" />
-            Generate My Statement
+            <Sparkles className="w-4 h-4" /> Generate My Statement
           </button>
         </motion.div>
       </div>
@@ -85,10 +96,6 @@ export default function FinancialStatement() {
 
   if (!data) return null;
 
-  const totalAssetValue = data.assets.reduce((s, a) => s + a.value, 0);
-  const totalLiabilityBalance = data.liabilities.reduce((s, l) => s + l.balance, 0);
-  const netWorth = totalAssetValue - totalLiabilityBalance;
-
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 pb-24 md:pb-8">
       {/* Header */}
@@ -100,44 +107,32 @@ export default function FinancialStatement() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Rich Dad style · AI-generated analysis</p>
         </div>
-        <button
-          onClick={generate}
-          disabled={loading}
+        <button onClick={generate} disabled={loading}
           className="flex items-center gap-2 px-4 py-2 rounded-lg border border-border text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
         >
-          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} />
-          Regenerate
+          <RefreshCw className={cn("w-4 h-4", loading && "animate-spin")} /> Regenerate
         </button>
       </motion.div>
 
       {/* Monthly Cashflow Banner */}
-      <motion.div
-        initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
-        className={cn(
-          "rounded-xl p-5 border",
-          data.monthly_cashflow >= 0
-            ? "bg-primary/5 border-primary/20"
-            : "bg-destructive/5 border-destructive/20"
-        )}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
+        className={cn("rounded-xl p-5 border", adjustedCashflow >= 0 ? "bg-primary/5 border-primary/20" : "bg-destructive/5 border-destructive/20")}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Cash Flow</p>
-            <p className={cn(
-              "text-3xl font-bold tabular-nums mt-1",
-              data.monthly_cashflow >= 0 ? "text-primary" : "text-destructive"
-            )}>
-              {formatCurrency(data.monthly_cashflow)}
+            <p className={cn("text-3xl font-bold tabular-nums mt-1", adjustedCashflow >= 0 ? "text-primary" : "text-destructive")}>
+              {formatCurrency(adjustedCashflow)}
             </p>
           </div>
           <div className="flex gap-6 text-sm">
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Total Income</p>
-              <p className="font-semibold text-primary tabular-nums">{formatCurrency(data.total_income)}</p>
+              <p className="font-semibold text-primary tabular-nums">{formatCurrency(data.total_income + manualPassiveIncome)}</p>
             </div>
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Total Expenses</p>
-              <p className="font-semibold text-destructive tabular-nums">{formatCurrency(data.total_expenses)}</p>
+              <p className="font-semibold text-destructive tabular-nums">{formatCurrency(data.total_expenses + manualPayments)}</p>
             </div>
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Net Worth</p>
@@ -149,9 +144,28 @@ export default function FinancialStatement() {
         </div>
       </motion.div>
 
-      {/* Two-column Cashflow layout */}
+      {/* Cashflow Diagram */}
+      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }}>
+        <CashflowDiagram
+          salary={data.income.salary}
+          passiveIncome={totalPassiveIncome}
+          totalIncome={data.total_income + manualPassiveIncome}
+          totalExpenses={data.total_expenses + manualPayments}
+          monthlyCashflow={adjustedCashflow}
+          totalAssets={totalAssetValue}
+          totalLiabilities={totalLiabilityBalance}
+        />
+      </motion.div>
+
+      {/* Manual Entry */}
+      <ManualEntryForm
+        onAddAsset={(a) => setManualAssets((prev) => [...prev, a])}
+        onAddLiability={(l) => setManualLiabilities((prev) => [...prev, l])}
+      />
+
+      {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEFT: Income Statement */}
+        {/* LEFT: Income & Expenses */}
         <div className="space-y-6">
           {/* INCOME */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
@@ -177,7 +191,7 @@ export default function FinancialStatement() {
               ))}
               <div className="flex items-center justify-between px-5 py-3 bg-primary/5">
                 <span className="text-sm font-bold text-foreground">Passive Income</span>
-                <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(data.passive_income)}</span>
+                <span className="text-sm font-bold text-primary tabular-nums">{formatCurrency(totalPassiveIncome)}</span>
               </div>
             </div>
           </motion.div>
@@ -199,13 +213,13 @@ export default function FinancialStatement() {
               ))}
               <div className="flex items-center justify-between px-5 py-3 bg-destructive/5">
                 <span className="text-sm font-bold text-foreground">Total Expenses</span>
-                <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(data.total_expenses)}</span>
+                <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(data.total_expenses + manualPayments)}</span>
               </div>
             </div>
           </motion.div>
         </div>
 
-        {/* RIGHT: Balance Sheet */}
+        {/* RIGHT: Assets & Liabilities */}
         <div className="space-y-6">
           {/* ASSETS */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
@@ -217,17 +231,18 @@ export default function FinancialStatement() {
             </div>
             <div className="divide-y divide-border">
               <div className="grid grid-cols-3 px-5 py-2 text-xs font-medium text-muted-foreground">
-                <span>Asset</span>
-                <span className="text-right">Value</span>
-                <span className="text-right">Cash Flow</span>
+                <span>Asset</span><span className="text-right">Value</span><span className="text-right">Cash Flow</span>
               </div>
-              {data.assets.map((asset, i) => (
+              {allAssets.map((asset, i) => (
                 <div key={i} className="grid grid-cols-3 items-center px-5 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{assetTypeIcons[asset.type] || "💎"}</span>
                     <div>
                       <span className="text-sm text-foreground">{asset.name}</span>
                       {asset.description && <p className="text-xs text-muted-foreground">{asset.description}</p>}
+                      {i >= (data.assets?.length || 0) && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/12 text-primary font-medium">Manual</span>
+                      )}
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-foreground tabular-nums text-right">{formatCurrency(asset.value)}</span>
@@ -239,7 +254,7 @@ export default function FinancialStatement() {
               <div className="grid grid-cols-3 items-center px-5 py-3 bg-primary/5">
                 <span className="text-sm font-bold">Total Assets</span>
                 <span className="text-sm font-bold text-foreground tabular-nums text-right">{formatCurrency(totalAssetValue)}</span>
-                <span className="text-sm font-bold text-primary tabular-nums text-right">{formatCurrency(data.passive_income)}</span>
+                <span className="text-sm font-bold text-primary tabular-nums text-right">{formatCurrency(totalPassiveIncome)}</span>
               </div>
             </div>
           </motion.div>
@@ -254,17 +269,18 @@ export default function FinancialStatement() {
             </div>
             <div className="divide-y divide-border">
               <div className="grid grid-cols-3 px-5 py-2 text-xs font-medium text-muted-foreground">
-                <span>Liability</span>
-                <span className="text-right">Balance</span>
-                <span className="text-right">Payment</span>
+                <span>Liability</span><span className="text-right">Balance</span><span className="text-right">Payment</span>
               </div>
-              {data.liabilities.map((lib, i) => (
+              {allLiabilities.map((lib, i) => (
                 <div key={i} className="grid grid-cols-3 items-center px-5 py-3">
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{liabilityTypeIcons[lib.type] || "📋"}</span>
                     <div>
                       <span className="text-sm text-foreground">{lib.name}</span>
                       {lib.description && <p className="text-xs text-muted-foreground">{lib.description}</p>}
+                      {i >= (data.liabilities?.length || 0) && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/12 text-destructive font-medium">Manual</span>
+                      )}
                     </div>
                   </div>
                   <span className="text-sm font-semibold text-foreground tabular-nums text-right">{formatCurrency(lib.balance)}</span>
@@ -277,7 +293,7 @@ export default function FinancialStatement() {
                 <span className="text-sm font-bold">Total Liabilities</span>
                 <span className="text-sm font-bold text-foreground tabular-nums text-right">{formatCurrency(totalLiabilityBalance)}</span>
                 <span className="text-sm font-bold text-destructive tabular-nums text-right">
-                  {formatCurrency(data.liabilities.reduce((s, l) => s + l.payment, 0))}
+                  {formatCurrency(allLiabilities.reduce((s, l) => s + l.payment, 0))}
                 </span>
               </div>
             </div>

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, ArrowLeftRight, Target,
-  FileText, HelpCircle, MessageCircle, Settings, LogOut, Menu, ChevronDown,
+  FileText, HelpCircle, MessageCircle, Settings, LogOut, Menu, ChevronDown, BarChart3,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -24,6 +24,7 @@ const menuItems = [
   { path: "/chat", label: "AI Advisor", icon: MessageSquare },
   { path: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { path: "/financial-statement", label: "Financial Statement", icon: FileText },
+  { path: "/insights", label: "Spending Insights", icon: BarChart3 },
   { path: "/goals", label: "Goals", icon: Target },
   { path: "/help", label: "Help & Support", icon: HelpCircle },
   { path: "/feedback", label: "Feedback", icon: MessageCircle },
@@ -168,6 +169,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <DropdownMenuContent align="end" side="top" className="w-48 mb-2">
               <DropdownMenuItem onClick={() => navigate("/financial-statement")}>
                 <FileText className="w-4 h-4 mr-2" /> Financial Statement
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/insights")}>
+                <BarChart3 className="w-4 h-4 mr-2" /> Spending Insights
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/help")}>
                 <HelpCircle className="w-4 h-4 mr-2" /> Help & Support
