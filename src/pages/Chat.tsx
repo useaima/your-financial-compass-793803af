@@ -129,7 +129,7 @@ export default function Chat() {
                     )}
                   >
                     {msg.role === "assistant" ? (
-                      <div className="prose prose-sm prose-invert max-w-none [&_p]:my-1.5 [&_ul]:my-1.5 [&_li]:my-0.5">
+                      <div className="prose prose-sm dark:prose-invert max-w-none [&_p]:my-1.5 [&_ul]:my-1.5 [&_li]:my-0.5">
                         <ReactMarkdown>{msg.content}</ReactMarkdown>
                       </div>
                     ) : (

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ArrowRight, AlertTriangle, CheckCircle, Info, Users, Building2 } from "lucide-react";
 import HealthScoreGauge from "@/components/HealthScoreGauge";
+import EbooksSection from "@/components/EbooksSection";
 import {
   totalBalance, monthlyIncome, monthlyExpenses, savingsRate, healthScore,
   categoryBreakdown, monthlyTrend, smartAlerts, CATEGORY_COLORS, type TransactionCategory,
@@ -151,8 +152,7 @@ export default function Dashboard() {
                   cy="50%"
                   innerRadius={40}
                   outerRadius={65}
-                  strokeWidth={2}
-                  stroke="hsl(225 12% 11%)"
+                   stroke="hsl(var(--card))"
                 >
                   {categoryBreakdown.map((entry) => (
                     <Cell
@@ -291,6 +291,9 @@ export default function Dashboard() {
           })}
         </div>
       </motion.div>
+
+      {/* E-books Section */}
+      <EbooksSection />
     </div>
   );
 }
