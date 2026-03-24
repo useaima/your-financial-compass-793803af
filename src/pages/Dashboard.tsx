@@ -292,6 +292,9 @@ export default function Dashboard() {
           })}
         </div>
       </motion.div>
+
+      {/* E-books Section */}
+      <EbooksSection />
     </div>
   );
 }

@@ -72,32 +72,34 @@ const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<PublicOrRedirect><Landing /></PublicOrRedirect>} />
-            <Route path="/signin" element={<AuthRoute><SignIn /></AuthRoute>} />
-            <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-            <Route path="/chat" element={<ProtectedPage><Chat /></ProtectedPage>} />
-            <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
-            <Route path="/goals" element={<ProtectedPage><Goals /></ProtectedPage>} />
-            <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
-            <Route path="/financial-statement" element={<ProtectedPage><FinancialStatement /></ProtectedPage>} />
-            <Route path="/help" element={<ProtectedPage><HelpSupport /></ProtectedPage>} />
-            <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </TooltipProvider>
+    <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <AuthProvider>
+            <Routes>
+              <Route path="/" element={<PublicOrRedirect><Landing /></PublicOrRedirect>} />
+              <Route path="/signin" element={<AuthRoute><SignIn /></AuthRoute>} />
+              <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+              <Route path="/chat" element={<ProtectedPage><Chat /></ProtectedPage>} />
+              <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
+              <Route path="/goals" element={<ProtectedPage><Goals /></ProtectedPage>} />
+              <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
+              <Route path="/financial-statement" element={<ProtectedPage><FinancialStatement /></ProtectedPage>} />
+              <Route path="/help" element={<ProtectedPage><HelpSupport /></ProtectedPage>} />
+              <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AuthProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </ThemeProvider>
   </QueryClientProvider>
 );
 

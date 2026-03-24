@@ -109,14 +109,20 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Sign out at bottom */}
-        <button
-          onClick={handleSignOut}
-          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors mt-auto"
-        >
-          <LogOut className="w-[18px] h-[18px]" />
-          Sign out
-        </button>
+        {/* Theme toggle + Sign out at bottom */}
+        <div className="mt-auto flex flex-col gap-1">
+          <div className="flex items-center gap-2 px-3 py-1">
+            <ThemeToggle />
+            <span className="text-xs text-muted-foreground">Theme</span>
+          </div>
+          <button
+            onClick={handleSignOut}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+          >
+            <LogOut className="w-[18px] h-[18px]" />
+            Sign out
+          </button>
+        </div>
       </aside>
 
       {/* Main content */}
