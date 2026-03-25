@@ -14,6 +14,51 @@ export type Database = {
   }
   public: {
     Tables: {
+      financial_entries: {
+        Row: {
+          balance: number
+          cashflow: number
+          created_at: string
+          description: string | null
+          entry_type: string
+          id: string
+          name: string
+          payment: number
+          type: string
+          updated_at: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          balance?: number
+          cashflow?: number
+          created_at?: string
+          description?: string | null
+          entry_type: string
+          id?: string
+          name: string
+          payment?: number
+          type: string
+          updated_at?: string
+          user_id: string
+          value?: number
+        }
+        Update: {
+          balance?: number
+          cashflow?: number
+          created_at?: string
+          description?: string | null
+          entry_type?: string
+          id?: string
+          name?: string
+          payment?: number
+          type?: string
+          updated_at?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           country: string
