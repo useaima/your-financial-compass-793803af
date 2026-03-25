@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ManualEntryForm from "@/components/financial/ManualEntryForm";
 import CashflowDiagram from "@/components/financial/CashflowDiagram";
+import { useFinancialEntries } from "@/hooks/useFinancialEntries";
 
 type IncomeItem = { name: string; amount: number; description?: string };
 type ExpenseItem = { name: string; amount: number; category: string };
@@ -37,8 +38,7 @@ const liabilityTypeIcons: Record<string, string> = {
 export default function FinancialStatement() {
   const [data, setData] = useState<FinancialStatementData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [manualAssets, setManualAssets] = useState<AssetItem[]>([]);
-  const [manualLiabilities, setManualLiabilities] = useState<LiabilityItem[]>([]);
+  const { assets: manualAssets, liabilities: manualLiabilities, addAsset, addLiability, editAsset, editLiability, deleteAsset, deleteLiability } = useFinancialEntries();
 
   const generate = async () => {
     setLoading(true);
@@ -98,7 +98,6 @@ export default function FinancialStatement() {
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto space-y-6 pb-24 md:pb-8">
-      {/* Header */}
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -114,7 +113,6 @@ export default function FinancialStatement() {
         </button>
       </motion.div>
 
-      {/* Monthly Cashflow Banner */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }}
         className={cn("rounded-xl p-5 border", adjustedCashflow >= 0 ? "bg-primary/5 border-primary/20" : "bg-destructive/5 border-destructive/20")}
       >
@@ -144,7 +142,6 @@ export default function FinancialStatement() {
         </div>
       </motion.div>
 
-      {/* Cashflow Diagram */}
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.07 }}>
         <CashflowDiagram
           salary={data.income.salary}
@@ -157,17 +154,19 @@ export default function FinancialStatement() {
         />
       </motion.div>
 
-      {/* Manual Entry */}
       <ManualEntryForm
-        onAddAsset={(a) => setManualAssets((prev) => [...prev, a])}
-        onAddLiability={(l) => setManualLiabilities((prev) => [...prev, l])}
+        onAddAsset={addAsset}
+        onAddLiability={addLiability}
+        onEditAsset={editAsset}
+        onEditLiability={editLiability}
+        onDeleteAsset={deleteAsset}
+        onDeleteLiability={deleteLiability}
+        manualAssets={manualAssets}
+        manualLiabilities={manualLiabilities}
       />
 
-      {/* Two-column layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* LEFT: Income & Expenses */}
         <div className="space-y-6">
-          {/* INCOME */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="bg-card border border-border rounded-xl overflow-hidden"
           >
@@ -196,7 +195,6 @@ export default function FinancialStatement() {
             </div>
           </motion.div>
 
-          {/* EXPENSES */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
             className="bg-card border border-border rounded-xl overflow-hidden"
           >
@@ -219,9 +217,7 @@ export default function FinancialStatement() {
           </motion.div>
         </div>
 
-        {/* RIGHT: Assets & Liabilities */}
         <div className="space-y-6">
-          {/* ASSETS */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             className="bg-card border border-border rounded-xl overflow-hidden"
           >
@@ -259,7 +255,6 @@ export default function FinancialStatement() {
             </div>
           </motion.div>
 
-          {/* LIABILITIES */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}
             className="bg-card border border-border rounded-xl overflow-hidden"
           >
@@ -301,7 +296,6 @@ export default function FinancialStatement() {
         </div>
       </div>
 
-      {/* AI Summary */}
       {data.summary && (
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}
           className="bg-card border border-border rounded-xl p-5"
