@@ -14,6 +14,7 @@ import Goals from "@/pages/Goals";
 import Settings from "@/pages/Settings";
 import FinancialStatement from "@/pages/FinancialStatement";
 import Insights from "@/pages/Insights";
+import News from "@/pages/News";
 import HelpSupport from "@/pages/HelpSupport";
 import Feedback from "@/pages/Feedback";
 import SignIn from "@/pages/SignIn";
@@ -95,6 +96,7 @@ const App = () => (
               <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
               <Route path="/financial-statement" element={<ProtectedPage><FinancialStatement /></ProtectedPage>} />
               <Route path="/insights" element={<ProtectedPage><Insights /></ProtectedPage>} />
+              <Route path="/news" element={<ProtectedPage><News /></ProtectedPage>} />
               <Route path="/help" element={<ProtectedPage><HelpSupport /></ProtectedPage>} />
               <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
               <Route path="*" element={<NotFound />} />
