@@ -191,6 +191,41 @@ export default function Settings() {
           {saving ? "Saving…" : "Save changes"}
         </Button>
       </motion.div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2, duration: 0.5 }}
+        className="bg-card border border-border rounded-xl p-6 space-y-4"
+      >
+        <h2 className="text-sm font-semibold text-foreground">App Settings</h2>
+
+        {isSupported && (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground flex items-center gap-2">
+                <Bell className="w-4 h-4" /> Push Notifications
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {permission === "granted" ? "Enabled" : "Get alerts for insights and goals"}
+              </p>
+            </div>
+            <Switch
+              checked={permission === "granted"}
+              onCheckedChange={() => requestPermission()}
+              disabled={permission === "denied"}
+            />
+          </div>
+        )}
+
+        <Button
+          variant="outline"
+          className="w-full gap-2"
+          onClick={() => navigate("/install")}
+        >
+          <Download className="w-4 h-4" /> Install App
+        </Button>
+      </motion.div>
     </div>
   );
 }
