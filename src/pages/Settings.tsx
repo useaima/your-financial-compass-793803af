@@ -8,8 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { User, Building2, Save, Loader2 } from "lucide-react";
+import { User, Building2, Save, Loader2, Bell, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useNavigate } from "react-router-dom";
 
 const COUNTRIES = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany", "France",
