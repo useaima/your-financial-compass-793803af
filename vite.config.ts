@@ -141,6 +141,7 @@ export default defineConfig(({ mode }) => ({
         ],
         skipWaiting: true,
         clientsClaim: true,
+        importScripts: ["sw-custom.js"],
       },
     }),
   ].filter(Boolean),
