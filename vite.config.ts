@@ -17,6 +17,9 @@ export default defineConfig(({ mode }) => ({
     mode === "development" && componentTagger(),
     VitePWA({
       registerType: "autoUpdate",
+      devOptions: {
+        enabled: false,
+      },
       includeAssets: ["favicon.ico", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
         name: "FinanceAI — Smart Financial Advisor",
@@ -79,8 +82,42 @@ export default defineConfig(({ mode }) => ({
             url: "/chat",
             icons: [{ src: "pwa-icon-192.png", sizes: "192x192" }],
           },
+          {
+            name: "Financial Statement",
+            short_name: "Statement",
+            url: "/financial-statement",
+            icons: [{ src: "pwa-icon-192.png", sizes: "192x192" }],
+          },
+          {
+            name: "Insights",
+            short_name: "Insights",
+            url: "/insights",
+            icons: [{ src: "pwa-icon-192.png", sizes: "192x192" }],
+          },
         ],
-      },
+        launch_handler: {
+          client_mode: "navigate-existing",
+        },
+        handle_links: "preferred",
+        share_target: {
+          action: "/dashboard",
+          method: "GET",
+          params: {
+            title: "title",
+            text: "text",
+            url: "url",
+          },
+        },
+        edge_side_panel: {
+          preferred_width: 400,
+        },
+        protocol_handlers: [
+          {
+            protocol: "web+financeai",
+            url: "/dashboard?action=%s",
+          },
+        ],
+      } as any,
       workbox: {
         navigateFallbackDenylist: [/^\/~oauth/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,jpg,jpeg,woff,woff2}"],
@@ -93,7 +130,17 @@ export default defineConfig(({ mode }) => ({
               expiration: { maxEntries: 50, maxAgeSeconds: 300 },
             },
           },
+          {
+            urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "google-fonts-stylesheets",
+              expiration: { maxEntries: 10, maxAgeSeconds: 60 * 60 * 24 * 365 },
+            },
+          },
         ],
+        skipWaiting: true,
+        clientsClaim: true,
       },
     }),
   ].filter(Boolean),
