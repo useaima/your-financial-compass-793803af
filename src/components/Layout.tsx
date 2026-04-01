@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, ArrowLeftRight, Target,
-  FileText, HelpCircle, MessageCircle, Settings, House, Menu, BarChart3, Newspaper, CreditCard, DollarSign, History,
+  FileText, HelpCircle, MessageCircle, Settings, House, Menu, BarChart3, Newspaper, CreditCard, DollarSign, History, TrendingUp,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -22,6 +22,7 @@ const menuItems = [
   { path: "/budget", label: "Budget Limits", icon: DollarSign },
   { path: "/subscriptions", label: "Subscriptions", icon: CreditCard },
   { path: "/news", label: "Finance News", icon: Newspaper },
+  { path: "/stock-picks", label: "Stock Picks", icon: TrendingUp },
   { path: "/goals", label: "Goals", icon: Target },
   { path: "/help", label: "Help & Support", icon: HelpCircle },
   { path: "/feedback", label: "Feedback", icon: MessageCircle },
@@ -174,6 +175,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/news")}>
                 <Newspaper className="w-4 h-4 mr-2" /> Finance News
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/stock-picks")}>
+                <TrendingUp className="w-4 h-4 mr-2" /> Stock Picks
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/help")}>
                 <HelpCircle className="w-4 h-4 mr-2" /> Help & Support
