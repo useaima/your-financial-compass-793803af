@@ -1,8 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { Plus, CreditCard, AlertTriangle, TrendingDown, Sparkles, Edit2, Trash2 } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/useAuth";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -11,7 +9,6 @@ import { useToast } from "@/components/ui/use-toast";
 
 type Subscription = {
   id: string;
-  user_id: string;
   name: string;
   price: number;
   billing_cycle: "monthly" | "yearly";
@@ -27,28 +24,6 @@ type SubscriptionInput = {
   billing_cycle: "monthly" | "yearly";
   category: string;
 };
-
-const CATEGORIES = [
-  "Entertainment",
-  "Productivity",
-  "Cloud Services",
-  "Gaming",
-  "News & Media",
-  "Health & Fitness",
-  "Education",
-  "Other",
-] as const;
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 14, filter: "blur(4px)" },
-  visible: (i: number) => ({
-    opacity: 1, y: 0, filter: "blur(0px)",
-    transition: { delay: i * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] },
-  }),
-};
-
-const formatCurrency = (n: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(n);
 
 interface AnalysisResult {
   totalMonthly: number;
@@ -68,19 +43,54 @@ interface AnalysisResult {
   };
 }
 
-async function fetchSubscriptionsForUser(userId: string) {
-  return supabase
-    .from("subscriptions")
-    .select("*")
-    .eq("user_id", userId)
-    .order("created_at", { ascending: false });
+const STORAGE_KEY = "financeai-prototype-subscriptions";
+
+const CATEGORIES = [
+  "Entertainment",
+  "Productivity",
+  "Cloud Services",
+  "Gaming",
+  "News & Media",
+  "Health & Fitness",
+  "Education",
+  "Other",
+] as const;
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 14, filter: "blur(4px)" },
+  visible: (i: number) => ({
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { delay: i * 0.08, duration: 0.5, ease: [0.16, 1, 0.3, 1] },
+  }),
+};
+
+const formatCurrency = (n: number) =>
+  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 0 }).format(n);
+
+function loadStoredSubscriptions(): Subscription[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  try {
+    const stored = window.localStorage.getItem(STORAGE_KEY);
+    if (!stored) return [];
+    return JSON.parse(stored) as Subscription[];
+  } catch {
+    return [];
+  }
+}
+
+function saveStoredSubscriptions(subscriptions: Subscription[]) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(subscriptions));
 }
 
 export default function Subscriptions() {
-  const { user } = useAuth();
   const { toast } = useToast();
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadStoredSubscriptions());
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<SubscriptionInput>({
@@ -92,144 +102,88 @@ export default function Subscriptions() {
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
 
-  useEffect(() => {
-    if (!user?.id) {
-      setSubscriptions([]);
-      setLoading(false);
-      return;
-    }
-
-    let isMounted = true;
-    setLoading(true);
-    void fetchSubscriptionsForUser(user.id).then(({ data, error }) => {
-      if (!isMounted) return;
-
-      if (error) {
-        toast({ title: "Unable to load subscriptions", variant: "destructive" });
-        setSubscriptions([]);
-      } else {
-        setSubscriptions(data ?? []);
-      }
-
-      setLoading(false);
-    });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [toast, user?.id]);
-
-  const refreshSubscriptions = async () => {
-    if (!user?.id) return;
-
-    setLoading(true);
-    const { data, error } = await fetchSubscriptionsForUser(user.id);
-    if (error) {
-      toast({ title: "Unable to load subscriptions", variant: "destructive" });
-      setLoading(false);
-      return;
-    }
-
-    setSubscriptions(data ?? []);
-    setLoading(false);
+  const persist = (nextSubscriptions: Subscription[]) => {
+    setSubscriptions(nextSubscriptions);
+    saveStoredSubscriptions(nextSubscriptions);
   };
 
   const handleSubmit = async () => {
-    if (!user || !formData.name || !formData.price) return;
+    if (!formData.name || !formData.price) return;
 
-    const payload = {
-      user_id: user.id,
+    const now = new Date().toISOString();
+    const subscription: Subscription = {
+      id: editingId ?? crypto.randomUUID(),
       name: formData.name,
       price: parseFloat(formData.price),
       billing_cycle: formData.billing_cycle,
       category: formData.category,
+      is_active: true,
+      created_at: now,
+      updated_at: now,
     };
 
     if (editingId) {
-      const { error } = await supabase
-        .from("subscriptions")
-        .update(payload)
-        .eq("id", editingId);
-
-      if (error) {
-        toast({ title: "Error updating subscription", variant: "destructive" });
-        return;
-      }
+      persist(
+        subscriptions.map((existingSubscription) =>
+          existingSubscription.id === editingId
+            ? { ...subscription, created_at: existingSubscription.created_at, updated_at: now }
+            : existingSubscription,
+        ),
+      );
       toast({ title: "Subscription updated" });
     } else {
-      const { error } = await supabase.from("subscriptions").insert(payload);
-      if (error) {
-        toast({ title: "Error adding subscription", variant: "destructive" });
-        return;
-      }
+      persist([subscription, ...subscriptions]);
       toast({ title: "Subscription added" });
     }
 
     setShowForm(false);
     setEditingId(null);
     setFormData({ name: "", price: "", billing_cycle: "monthly", category: "Entertainment" });
-    await refreshSubscriptions();
   };
 
   const handleDelete = async (id: string) => {
-    const { error } = await supabase.from("subscriptions").delete().eq("id", id);
-    if (!error) {
-      toast({ title: "Subscription deleted" });
-      await refreshSubscriptions();
-      return;
-    }
-
-    toast({ title: "Error deleting subscription", variant: "destructive" });
+    persist(subscriptions.filter((subscription) => subscription.id !== id));
+    toast({ title: "Subscription deleted" });
   };
 
-  const handleEdit = (sub: Subscription) => {
-    setEditingId(sub.id);
+  const handleEdit = (subscription: Subscription) => {
+    setEditingId(subscription.id);
     setFormData({
-      name: sub.name,
-      price: sub.price.toString(),
-      billing_cycle: sub.billing_cycle,
-      category: sub.category,
+      name: subscription.name,
+      price: subscription.price.toString(),
+      billing_cycle: subscription.billing_cycle,
+      category: subscription.category,
     });
     setShowForm(true);
   };
 
   const runAnalysis = async () => {
-    if (!user || subscriptions.length === 0) return;
+    if (subscriptions.length === 0) return;
     setAnalyzing(true);
 
     try {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      if (!session?.access_token) {
-        throw new Error("You need to be signed in to analyze subscriptions.");
-      }
-
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/analyze-subscriptions`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
             apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
           },
           body: JSON.stringify({ subscriptions }),
-        }
+        },
       );
 
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysis(data);
-      } else {
+      if (!response.ok) {
         const error = await response.json().catch(() => null);
         throw new Error(error?.error || "Unable to analyze subscriptions right now.");
       }
-    } catch (e) {
-      console.error("Analysis error:", e);
+
+      setAnalysis(await response.json());
+    } catch (error) {
       toast({
         title: "Analysis failed",
-        description: e instanceof Error ? e.message : "Unable to analyze subscriptions right now.",
+        description: error instanceof Error ? error.message : "Unable to analyze subscriptions right now.",
         variant: "destructive",
       });
     }
@@ -237,31 +191,29 @@ export default function Subscriptions() {
     setAnalyzing(false);
   };
 
-  const getMonthlyTotal = () => {
-    return subscriptions.reduce((sum, sub) => {
-      if (!sub.is_active) return sum;
-      return sum + (sub.billing_cycle === "yearly" ? sub.price / 12 : sub.price);
+  const getMonthlyTotal = () =>
+    subscriptions.reduce((sum, subscription) => {
+      if (!subscription.is_active) return sum;
+      return sum + (subscription.billing_cycle === "yearly" ? subscription.price / 12 : subscription.price);
     }, 0);
-  };
 
-  const getYearlyTotal = () => {
-    return subscriptions.reduce((sum, sub) => {
-      if (!sub.is_active) return sum;
-      return sum + (sub.billing_cycle === "monthly" ? sub.price * 12 : sub.price);
+  const getYearlyTotal = () =>
+    subscriptions.reduce((sum, subscription) => {
+      if (!subscription.is_active) return sum;
+      return sum + (subscription.billing_cycle === "monthly" ? subscription.price * 12 : subscription.price);
     }, 0);
-  };
 
   const getCategoryBreakdown = () => {
     const breakdown: Record<string, number> = {};
-    subscriptions.forEach((sub) => {
-      if (!sub.is_active) return;
-      const monthly = sub.billing_cycle === "yearly" ? sub.price / 12 : sub.price;
-      breakdown[sub.category] = (breakdown[sub.category] || 0) + monthly;
+    subscriptions.forEach((subscription) => {
+      if (!subscription.is_active) return;
+      const monthly = subscription.billing_cycle === "yearly" ? subscription.price / 12 : subscription.price;
+      breakdown[subscription.category] = (breakdown[subscription.category] || 0) + monthly;
     });
     return breakdown;
   };
 
-  const getActiveCount = () => subscriptions.filter((s) => s.is_active).length;
+  const getActiveCount = () => subscriptions.filter((subscription) => subscription.is_active).length;
 
   return (
     <div className="p-4 md:p-8 max-w-[800px] mx-auto space-y-6">
@@ -273,61 +225,37 @@ export default function Subscriptions() {
       >
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Subscriptions</h1>
-          <p className="text-sm text-muted-foreground mt-1">Track and optimize your recurring payments.</p>
+          <p className="text-sm text-muted-foreground mt-1">
+            Track recurring payments locally and run AI analysis without creating an account.
+          </p>
         </div>
         <Button onClick={() => setShowForm(true)} size="sm" className="gap-1.5">
           <Plus className="w-3.5 h-3.5" /> Add New
         </Button>
       </motion.div>
 
-      {/* Summary Cards */}
       <div className="grid grid-cols-3 gap-3">
-        <motion.div
-          custom={0}
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          className="bg-card border border-border rounded-xl p-4"
-        >
+        <motion.div custom={0} initial="hidden" animate="visible" variants={fadeUp} className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Monthly</p>
           <p className="text-xl font-bold tabular-nums">{formatCurrency(getMonthlyTotal())}</p>
         </motion.div>
-        <motion.div
-          custom={1}
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          className="bg-card border border-border rounded-xl p-4"
-        >
+        <motion.div custom={1} initial="hidden" animate="visible" variants={fadeUp} className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Yearly</p>
           <p className="text-xl font-bold tabular-nums">{formatCurrency(getYearlyTotal())}</p>
         </motion.div>
-        <motion.div
-          custom={2}
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          className="bg-card border border-border rounded-xl p-4"
-        >
+        <motion.div custom={2} initial="hidden" animate="visible" variants={fadeUp} className="bg-card border border-border rounded-xl p-4">
           <p className="text-xs text-muted-foreground">Active</p>
           <p className="text-xl font-bold tabular-nums">{getActiveCount()}</p>
         </motion.div>
       </div>
 
-      {/* Category Breakdown */}
       {subscriptions.length > 0 && (
-        <motion.div
-          custom={3}
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          className="bg-card border border-border rounded-xl p-5 space-y-3"
-        >
+        <motion.div custom={3} initial="hidden" animate="visible" variants={fadeUp} className="bg-card border border-border rounded-xl p-5 space-y-3">
           <h2 className="text-sm font-semibold">Category Breakdown</h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {Object.entries(getCategoryBreakdown()).map(([cat, amount]) => (
-              <div key={cat} className="text-center">
-                <p className="text-xs text-muted-foreground">{cat}</p>
+            {Object.entries(getCategoryBreakdown()).map(([category, amount]) => (
+              <div key={category} className="text-center">
+                <p className="text-xs text-muted-foreground">{category}</p>
                 <p className="text-sm font-semibold">{formatCurrency(amount)}/mo</p>
               </div>
             ))}
@@ -335,14 +263,8 @@ export default function Subscriptions() {
         </motion.div>
       )}
 
-      {/* AI Analysis Button */}
       {subscriptions.length >= 2 && (
-        <motion.div
-          custom={4}
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-        >
+        <motion.div custom={4} initial="hidden" animate="visible" variants={fadeUp}>
           <Button
             onClick={runAnalysis}
             disabled={analyzing}
@@ -354,13 +276,8 @@ export default function Subscriptions() {
         </motion.div>
       )}
 
-      {/* Analysis Results */}
       {analysis && (
-        <motion.div
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-5 space-y-4"
-        >
+        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="bg-card border border-border rounded-xl p-5 space-y-4">
           {analysis.overwhelmDetected && (
             <div className="flex items-start gap-3 p-3 bg-destructive/10 border border-destructive/20 rounded-lg">
               <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
@@ -386,42 +303,41 @@ export default function Subscriptions() {
           {analysis.recommendations.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-sm font-semibold">AI Recommendations</h3>
-              {analysis.recommendations.map((rec) => {
-                const sub = subscriptions.find((s) => s.id === rec.subscriptionId);
-                if (!sub) return null;
+              {analysis.recommendations.map((recommendation) => {
+                const subscription = subscriptions.find((existingSubscription) => existingSubscription.id === recommendation.subscriptionId);
+                if (!subscription) return null;
+
                 return (
                   <div
-                    key={rec.subscriptionId}
+                    key={recommendation.subscriptionId}
                     className={cn(
                       "p-3 rounded-lg border flex items-center justify-between",
-                      rec.action === "cancel"
+                      recommendation.action === "cancel"
                         ? "bg-destructive/5 border-destructive/20"
-                        : rec.action === "review"
-                        ? "bg-yellow-500/5 border-yellow-500/20"
-                        : "bg-primary/5 border-primary/20"
+                        : recommendation.action === "review"
+                          ? "bg-yellow-500/5 border-yellow-500/20"
+                          : "bg-primary/5 border-primary/20",
                     )}
                   >
                     <div>
-                      <p className="text-sm font-medium">{sub.name}</p>
-                      <p className="text-xs text-muted-foreground">{rec.reason}</p>
+                      <p className="text-sm font-medium">{subscription.name}</p>
+                      <p className="text-xs text-muted-foreground">{recommendation.reason}</p>
                     </div>
                     <div className="text-right">
                       <span
                         className={cn(
                           "text-xs font-medium px-2 py-1 rounded-full",
-                          rec.action === "cancel"
+                          recommendation.action === "cancel"
                             ? "bg-destructive text-destructive-foreground"
-                            : rec.action === "review"
-                            ? "bg-yellow-500 text-yellow-foreground"
-                            : "bg-primary text-primary-foreground"
+                            : recommendation.action === "review"
+                              ? "bg-yellow-500 text-yellow-foreground"
+                              : "bg-primary text-primary-foreground",
                         )}
                       >
-                        {rec.action.toUpperCase()}
+                        {recommendation.action.toUpperCase()}
                       </span>
-                      {rec.savings > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Save {formatCurrency(rec.savings)}/mo
-                        </p>
+                      {recommendation.savings > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1">Save {formatCurrency(recommendation.savings)}/mo</p>
                       )}
                     </div>
                   </div>
@@ -432,24 +348,19 @@ export default function Subscriptions() {
         </motion.div>
       )}
 
-      {/* Subscription List */}
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-muted-foreground">Your Subscriptions</h2>
-        {loading ? (
-          <div className="flex items-center justify-center py-8">
-            <div className="w-6 h-6 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-          </div>
-        ) : subscriptions.length === 0 ? (
+        {subscriptions.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <CreditCard className="w-8 h-8 mx-auto mb-2 opacity-50" />
             <p className="text-sm">No subscriptions yet</p>
             <p className="text-xs mt-1">Add your first subscription to get started</p>
           </div>
         ) : (
-          subscriptions.map((sub, i) => (
+          subscriptions.map((subscription, index) => (
             <motion.div
-              key={sub.id}
-              custom={5 + i}
+              key={subscription.id}
+              custom={5 + index}
               initial="hidden"
               animate="visible"
               variants={fadeUp}
@@ -460,24 +371,24 @@ export default function Subscriptions() {
                   <CreditCard className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold">{sub.name}</h3>
-                  <p className="text-xs text-muted-foreground">{sub.category} &bull; {sub.billing_cycle}</p>
+                  <h3 className="text-sm font-semibold">{subscription.name}</h3>
+                  <p className="text-xs text-muted-foreground">{subscription.category} &bull; {subscription.billing_cycle}</p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className="text-sm font-semibold tabular-nums">{formatCurrency(sub.price)}</p>
-                  <p className="text-xs text-muted-foreground">/{sub.billing_cycle === "monthly" ? "mo" : "yr"}</p>
+                  <p className="text-sm font-semibold tabular-nums">{formatCurrency(subscription.price)}</p>
+                  <p className="text-xs text-muted-foreground">/{subscription.billing_cycle === "monthly" ? "mo" : "yr"}</p>
                 </div>
                 <div className="flex gap-1">
                   <button
-                    onClick={() => handleEdit(sub)}
+                    onClick={() => handleEdit(subscription)}
                     className="p-2 rounded-lg hover:bg-secondary transition-colors text-muted-foreground hover:text-foreground"
                   >
                     <Edit2 className="w-4 h-4" />
                   </button>
                   <button
-                    onClick={() => handleDelete(sub.id)}
+                    onClick={() => handleDelete(subscription.id)}
                     className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-muted-foreground hover:text-destructive"
                   >
                     <Trash2 className="w-4 h-4" />
@@ -489,7 +400,6 @@ export default function Subscriptions() {
         )}
       </div>
 
-      {/* Add/Edit Form Modal */}
       <Dialog open={showForm} onOpenChange={setShowForm}>
         <DialogContent>
           <DialogHeader>
@@ -500,7 +410,7 @@ export default function Subscriptions() {
               <label className="text-xs font-medium text-muted-foreground">Name</label>
               <input
                 value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
+                onChange={(event) => setFormData((previous) => ({ ...previous, name: event.target.value }))}
                 placeholder="e.g., Netflix, Spotify"
                 className="w-full mt-1 bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40"
               />
@@ -509,7 +419,7 @@ export default function Subscriptions() {
               <label className="text-xs font-medium text-muted-foreground">Price</label>
               <input
                 value={formData.price}
-                onChange={(e) => setFormData((p) => ({ ...p, price: e.target.value }))}
+                onChange={(event) => setFormData((previous) => ({ ...previous, price: event.target.value }))}
                 placeholder="0.00"
                 type="number"
                 step="0.01"
@@ -520,7 +430,7 @@ export default function Subscriptions() {
               <label className="text-xs font-medium text-muted-foreground">Billing Cycle</label>
               <Select
                 value={formData.billing_cycle}
-                onValueChange={(v: "monthly" | "yearly") => setFormData((p) => ({ ...p, billing_cycle: v }))}
+                onValueChange={(value: "monthly" | "yearly") => setFormData((previous) => ({ ...previous, billing_cycle: value }))}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -535,14 +445,14 @@ export default function Subscriptions() {
               <label className="text-xs font-medium text-muted-foreground">Category</label>
               <Select
                 value={formData.category}
-                onValueChange={(v) => setFormData((p) => ({ ...p, category: v }))}
+                onValueChange={(value) => setFormData((previous) => ({ ...previous, category: value }))}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {CATEGORIES.map((cat) => (
-                    <SelectItem key={cat} value={cat}>{cat}</SelectItem>
+                  {CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>{category}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

@@ -1,10 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, Navigate } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { AuthProvider, useAuth } from "@/hooks/useAuth";
 import Layout from "@/components/Layout";
 import Landing from "@/pages/Landing";
 import Dashboard from "@/pages/Dashboard";
@@ -18,10 +17,6 @@ import News from "@/pages/News";
 import Subscriptions from "@/pages/Subscriptions";
 import HelpSupport from "@/pages/HelpSupport";
 import Feedback from "@/pages/Feedback";
-import SignIn from "@/pages/SignIn";
-import SignUp from "@/pages/SignUp";
-import ForgotPassword from "@/pages/ForgotPassword";
-import ResetPassword from "@/pages/ResetPassword";
 import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/NotFound";
@@ -29,50 +24,10 @@ import Install from "@/pages/Install";
 
 const queryClient = new QueryClient();
 
-
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (!user) return <Navigate to="/signin" replace />;
-  return <>{children}</>;
-}
-
-function AuthRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (user) return <Navigate to="/dashboard" replace />;
-  return <>{children}</>;
-}
-
-function PublicOrRedirect({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-  if (user) return <Navigate to="/dashboard" replace />;
-  return <>{children}</>;
-}
-
-const ProtectedPage = ({ children }: { children: React.ReactNode }) => (
-  <ProtectedRoute>
+const AppPage = ({ children }: { children: React.ReactNode }) => (
+  <>
     <Layout>{children}</Layout>
-  </ProtectedRoute>
+  </>
 );
 
 const App = () => (
@@ -82,30 +37,24 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
-          <AuthProvider>
-            <Routes>
-              <Route path="/" element={<PublicOrRedirect><Landing /></PublicOrRedirect>} />
-              <Route path="/signin" element={<AuthRoute><SignIn /></AuthRoute>} />
-              <Route path="/signup" element={<AuthRoute><SignUp /></AuthRoute>} />
-              <Route path="/forgot-password" element={<ForgotPassword />} />
-              <Route path="/reset-password" element={<ResetPassword />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-              <Route path="/chat" element={<ProtectedPage><Chat /></ProtectedPage>} />
-              <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
-              <Route path="/goals" element={<ProtectedPage><Goals /></ProtectedPage>} />
-              <Route path="/subscriptions" element={<ProtectedPage><Subscriptions /></ProtectedPage>} />
-              <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
-              <Route path="/financial-statement" element={<ProtectedPage><FinancialStatement /></ProtectedPage>} />
-              <Route path="/insights" element={<ProtectedPage><Insights /></ProtectedPage>} />
-              <Route path="/news" element={<ProtectedPage><News /></ProtectedPage>} />
-              <Route path="/help" element={<ProtectedPage><HelpSupport /></ProtectedPage>} />
-              <Route path="/feedback" element={<ProtectedPage><Feedback /></ProtectedPage>} />
-              <Route path="/install" element={<Install />} />
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </AuthProvider>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/dashboard" element={<AppPage><Dashboard /></AppPage>} />
+            <Route path="/chat" element={<AppPage><Chat /></AppPage>} />
+            <Route path="/transactions" element={<AppPage><Transactions /></AppPage>} />
+            <Route path="/goals" element={<AppPage><Goals /></AppPage>} />
+            <Route path="/subscriptions" element={<AppPage><Subscriptions /></AppPage>} />
+            <Route path="/settings" element={<AppPage><Settings /></AppPage>} />
+            <Route path="/financial-statement" element={<AppPage><FinancialStatement /></AppPage>} />
+            <Route path="/insights" element={<AppPage><Insights /></AppPage>} />
+            <Route path="/news" element={<AppPage><News /></AppPage>} />
+            <Route path="/help" element={<AppPage><HelpSupport /></AppPage>} />
+            <Route path="/feedback" element={<AppPage><Feedback /></AppPage>} />
+            <Route path="/install" element={<Install />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
         </BrowserRouter>
       </TooltipProvider>
     </ThemeProvider>

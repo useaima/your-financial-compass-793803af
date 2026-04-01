@@ -1,17 +1,15 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, ArrowLeftRight, Target,
-  FileText, HelpCircle, MessageCircle, Settings, LogOut, Menu, BarChart3, Newspaper, CreditCard,
+  FileText, HelpCircle, MessageCircle, Settings, House, Menu, BarChart3, Newspaper, CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { useAuth } from "@/hooks/useAuth";
 import ThemeToggle from "@/components/ThemeToggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 
@@ -38,13 +36,7 @@ const allTabs = [
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
-  const { signOut } = useAuth();
   const activePath = location.pathname;
-
-  const handleSignOut = async () => {
-    await signOut();
-    navigate("/signin");
-  };
 
   return (
     <div className="flex min-h-screen bg-background">
@@ -107,18 +99,23 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           })}
         </nav>
 
-        {/* Theme toggle + Sign out at bottom */}
-        <div className="mt-auto flex flex-col gap-1">
+        <div className="mt-auto flex flex-col gap-2">
+          <div className="px-3 py-3 rounded-xl border border-primary/15 bg-primary/5">
+            <p className="text-xs font-semibold text-foreground">Prototype Mode</p>
+            <p className="text-[11px] text-muted-foreground mt-1">
+              No sign-in required. Settings and manual data stay in this browser.
+            </p>
+          </div>
           <div className="flex items-center gap-2 px-3 py-1">
             <ThemeToggle />
             <span className="text-xs text-muted-foreground">Theme</span>
           </div>
           <button
-            onClick={handleSignOut}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors"
+            onClick={() => navigate("/")}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
           >
-            <LogOut className="w-[18px] h-[18px]" />
-            Sign out
+            <House className="w-[18px] h-[18px]" />
+            Back to home
           </button>
         </div>
       </aside>
@@ -164,6 +161,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="top" className="w-48 mb-2">
+              <DropdownMenuItem onClick={() => navigate("/")}>
+                <House className="w-4 h-4 mr-2" /> Home
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/financial-statement")}>
                 <FileText className="w-4 h-4 mr-2" /> Financial Statement
               </DropdownMenuItem>
@@ -181,10 +181,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => navigate("/settings")}>
                 <Settings className="w-4 h-4 mr-2" /> Settings
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut} className="text-destructive focus:text-destructive">
-                <LogOut className="w-4 h-4 mr-2" /> Sign out
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

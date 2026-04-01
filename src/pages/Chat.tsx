@@ -5,7 +5,6 @@ import ReactMarkdown from "react-markdown";
 import { streamChat, type Msg, type ParsedSpending } from "@/lib/streamChat";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { useAuth } from "@/hooks/useAuth";
 import HealthScoreGauge from "@/components/HealthScoreGauge";
 
 const quickActions = [
@@ -25,7 +24,6 @@ type ChatEntry =
   | { type: "spending"; data: SpendingBubble };
 
 export default function Chat() {
-  const { session } = useAuth();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState("");
@@ -72,7 +70,6 @@ export default function Chat() {
     try {
       await streamChat({
         messages: newMessages,
-        token: session?.access_token,
         onDelta: upsertAssistant,
         onDone: () => {
           setIsLoading(false);

@@ -25,7 +25,7 @@ export async function streamChat({
 }) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+    apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
   };
   if (token) {
     headers["Authorization"] = `Bearer ${token}`;

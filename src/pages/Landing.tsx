@@ -43,12 +43,12 @@ export default function Landing() {
           <span className="font-semibold text-foreground tracking-tight text-[15px]">FinanceAI</span>
         </div>
         <div className="flex items-center gap-3">
-          <Link to="/signin">
-            <Button variant="ghost" size="sm">Sign in</Button>
+          <Link to="/chat">
+            <Button variant="ghost" size="sm">Try advisor</Button>
           </Link>
-          <Link to="/signup">
+          <Link to="/dashboard">
             <Button size="sm" className="gap-1.5">
-              Get started <ArrowRight className="w-3.5 h-3.5" />
+              Open prototype <ArrowRight className="w-3.5 h-3.5" />
             </Button>
           </Link>
         </div>
@@ -69,17 +69,17 @@ export default function Landing() {
             Your money, managed by <span className="text-primary">intelligence</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            FinanceAI analyzes your spending, predicts your future, and gives you actionable advice — all in one beautiful dashboard.
+            FinanceAI analyzes your spending, predicts your future, and gives you actionable advice in a prototype you can explore immediately, no sign-in required.
           </p>
           <div className="flex items-center justify-center gap-3 pt-4">
-            <Link to="/signup">
+            <Link to="/dashboard">
               <Button size="lg" className="gap-2 px-8">
-                Start for free <ArrowRight className="w-4 h-4" />
+                Explore dashboard <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
-            <Link to="/signin">
+            <Link to="/chat">
               <Button variant="outline" size="lg" className="px-8">
-                Sign in
+                Ask the AI
               </Button>
             </Link>
           </div>

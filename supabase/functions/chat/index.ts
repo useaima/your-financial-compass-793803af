@@ -149,15 +149,21 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 
-    // Create client with user's JWT to respect RLS
-    const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-      global: { headers: { Authorization: authHeader } },
-    });
+    const supabase = authHeader
+      ? createClient(supabaseUrl, supabaseAnonKey, {
+          global: { headers: { Authorization: authHeader } },
+        })
+      : createClient(supabaseUrl, supabaseAnonKey);
 
-    // Get user
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    let user = null;
+    if (authHeader) {
+      const { data, error } = await supabase.auth.getUser();
+      if (error) {
+        console.warn("Proceeding without authenticated user context:", error.message);
+      } else {
+        user = data.user;
+      }
+    }
 
     let history: any[] = [];
     let todayTotal = 0;
@@ -231,24 +237,36 @@ serve(async (req) => {
     }
 
     // Store parsed spending
-    if (parsedItems.length > 0 && user) {
+    if (parsedItems.length > 0) {
       const total = parsedItems.reduce(
         (sum: number, item: any) => sum + (item.amount || 0),
         0
       );
+      const logDate = new Date().toISOString().split("T")[0];
 
-      const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-      await adminClient.from("spending_logs").insert({
-        user_id: user.id,
-        raw_input: lastUserMsg,
-        items: parsedItems,
-        total,
-        date: new Date().toISOString().split("T")[0],
-      });
+      if (user) {
+        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
+        await adminClient.from("spending_logs").insert({
+          user_id: user.id,
+          raw_input: lastUserMsg,
+          items: parsedItems,
+          total,
+          date: logDate,
+        });
+      }
 
-      // Update totals for context
+      history = [
+        {
+          date: logDate,
+          items: parsedItems,
+          total,
+        },
+        ...history,
+      ];
+
       todayTotal += total;
       weekTotal += total;
+      financialScore = calculateScore(history);
     }
 
     // Phase 2: Generate advice (streaming)

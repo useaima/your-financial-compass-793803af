@@ -1,6 +1,4 @@
-import { useState, useEffect } from "react";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,6 +10,7 @@ import { User, Building2, Save, Loader2, Bell, Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
 import { useNavigate } from "react-router-dom";
+import { getPrototypeProfile, savePrototypeProfile } from "@/lib/prototypeProfile";
 
 const COUNTRIES = [
   "United States", "United Kingdom", "Canada", "Australia", "Germany", "France",
@@ -22,69 +21,17 @@ const COUNTRIES = [
 ];
 
 export default function Settings() {
-  const { user } = useAuth();
   const navigate = useNavigate();
   const { isSupported, permission, requestPermission } = usePushNotifications();
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    firstName: "",
-    lastName: "",
-    country: "",
-    userType: "personal",
-    updatesOptIn: false,
-  });
-
-  useEffect(() => {
-    if (!user) return;
-    supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", user.id)
-      .single()
-      .then(({ data, error }) => {
-        if (data) {
-          setForm({
-            firstName: data.first_name,
-            lastName: data.last_name,
-            country: data.country,
-            userType: (data as any).user_type || "personal",
-            updatesOptIn: data.updates_opt_in,
-          });
-        }
-        setLoading(false);
-      });
-  }, [user]);
+  const [form, setForm] = useState(() => getPrototypeProfile());
 
   const handleSave = async () => {
-    if (!user) return;
     setSaving(true);
-    const { error } = await supabase
-      .from("profiles")
-      .update({
-        first_name: form.firstName,
-        last_name: form.lastName,
-        country: form.country,
-        user_type: form.userType,
-        updates_opt_in: form.updatesOptIn,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq("id", user.id);
+    savePrototypeProfile(form);
     setSaving(false);
-    if (error) {
-      toast.error("Failed to save profile");
-    } else {
-      toast.success("Profile updated");
-    }
+    toast.success("Prototype settings saved");
   };
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-      </div>
-    );
-  }
 
   return (
     <div className="p-4 md:p-8 max-w-[600px] mx-auto space-y-6">
@@ -93,8 +40,8 @@ export default function Settings() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
-        <h1 className="text-2xl font-bold tracking-tight">Profile Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your account details</p>
+        <h1 className="text-2xl font-bold tracking-tight">Prototype Settings</h1>
+        <p className="text-sm text-muted-foreground mt-1">Manage local demo details for this browser</p>
       </motion.div>
 
       <motion.div
@@ -108,8 +55,8 @@ export default function Settings() {
             <User className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">{user?.email}</p>
-            <p className="text-xs text-muted-foreground">Account email</p>
+            <p className="text-sm font-medium text-foreground">No sign-in required</p>
+            <p className="text-xs text-muted-foreground">Your profile is stored locally on this device</p>
           </div>
         </div>
 
@@ -188,7 +135,7 @@ export default function Settings() {
 
         <Button className="w-full gap-2" onClick={handleSave} disabled={saving}>
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-          {saving ? "Saving…" : "Save changes"}
+          {saving ? "Saving..." : "Save changes"}
         </Button>
       </motion.div>
 

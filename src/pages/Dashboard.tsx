@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { PieChart, Pie, Cell, ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from "recharts";
 import { TrendingUp, TrendingDown, Wallet, PiggyBank, ArrowRight, AlertTriangle, CheckCircle, Info, Users, Building2 } from "lucide-react";
@@ -9,8 +8,7 @@ import {
   categoryBreakdown, monthlyTrend, smartAlerts, CATEGORY_COLORS, type TransactionCategory,
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
-import { supabase } from "@/integrations/supabase/client";
+import { getPrototypeProfile } from "@/lib/prototypeProfile";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -36,16 +34,8 @@ const alertColors = {
 };
 
 export default function Dashboard() {
-  const { user } = useAuth();
-  const [profile, setProfile] = useState<{ first_name: string; user_type: string } | null>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    supabase.from("profiles").select("first_name, user_type").eq("id", user.id).single()
-      .then(({ data }) => { if (data) setProfile(data as any); });
-  }, [user]);
-
-  const isEnterprise = profile?.user_type === "enterprise";
+  const profile = getPrototypeProfile();
+  const isEnterprise = profile.userType === "enterprise";
   const predictedBalance = totalBalance - monthlyExpenses * 0.35;
 
   const personalStats = [
@@ -82,7 +72,7 @@ export default function Dashboard() {
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       >
         <h1 className="text-2xl font-bold tracking-tight text-balance">
-          {profile?.first_name ? `Welcome back, ${profile.first_name}` : "Financial Overview"}
+          {profile.firstName ? `Welcome back, ${profile.firstName}` : "Financial Overview"}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {isEnterprise
