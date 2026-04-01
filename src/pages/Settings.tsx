@@ -138,7 +138,7 @@ export default function Settings() {
                 <button
                   key={opt.type}
                   type="button"
-                  onClick={() => setForm((p) => ({ ...p, userType: opt.type }))}
+                  onClick={() => setForm((p) => ({ ...p, userType: opt.type as "personal" | "enterprise" }))}
                   className={cn(
                     "flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors",
                     form.userType === opt.type
