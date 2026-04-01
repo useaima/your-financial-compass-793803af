@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, MessageSquare, ArrowLeftRight, Target,
-  FileText, HelpCircle, MessageCircle, Settings, House, Menu, BarChart3, Newspaper, CreditCard,
+  FileText, HelpCircle, MessageCircle, Settings, House, Menu, BarChart3, Newspaper, CreditCard, DollarSign, History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
@@ -18,6 +18,8 @@ const menuItems = [
   { path: "/transactions", label: "Transactions", icon: ArrowLeftRight },
   { path: "/financial-statement", label: "Financial Statement", icon: FileText },
   { path: "/insights", label: "Spending Insights", icon: BarChart3 },
+  { path: "/spending-history", label: "Spending History", icon: History },
+  { path: "/budget", label: "Budget Limits", icon: DollarSign },
   { path: "/subscriptions", label: "Subscriptions", icon: CreditCard },
   { path: "/news", label: "Finance News", icon: Newspaper },
   { path: "/goals", label: "Goals", icon: Target },

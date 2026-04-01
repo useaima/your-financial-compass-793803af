@@ -21,6 +21,8 @@ import Terms from "@/pages/Terms";
 import Privacy from "@/pages/Privacy";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
+import Budget from "@/pages/Budget";
+import SpendingHistory from "@/pages/SpendingHistory";
 
 const queryClient = new QueryClient();
 
@@ -52,6 +54,8 @@ const App = () => (
             <Route path="/news" element={<AppPage><News /></AppPage>} />
             <Route path="/help" element={<AppPage><HelpSupport /></AppPage>} />
             <Route path="/feedback" element={<AppPage><Feedback /></AppPage>} />
+            <Route path="/budget" element={<AppPage><Budget /></AppPage>} />
+            <Route path="/spending-history" element={<AppPage><SpendingHistory /></AppPage>} />
             <Route path="/install" element={<Install />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

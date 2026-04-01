@@ -8,7 +8,7 @@ import { VitePWA } from "vite-plugin-pwa";
 
 const buildTmpDir =
   [process.env.TMPDIR, process.env.TEMP, process.env.TMP, os.tmpdir(), "/tmp"].find(
-    (dir): dir is string => Boolean(dir) && fs.existsSync(dir),
+    (dir): dir is string => Boolean(dir) && fs.existsSync(dir as string),
   ) ?? "/tmp";
 
 process.env.TMPDIR = buildTmpDir;

@@ -42,7 +42,7 @@ export default function SEO({
     updateMetaTag('author', 'FinanceAI');
 
     // Update canonical
-    let canonicalLink = document.querySelector('link[rel="canonical"]');
+    let canonicalLink = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonicalLink) {
       canonicalLink = document.createElement('link');
       canonicalLink.rel = 'canonical';
