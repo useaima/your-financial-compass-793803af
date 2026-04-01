@@ -27,17 +27,9 @@ const PARSE_TOOLS = [
                 category: {
                   type: "string",
                   enum: [
-                    "Food",
-                    "Transport",
-                    "Entertainment",
-                    "Shopping",
-                    "Bills",
-                    "Health",
-                    "Education",
-                    "Subscriptions",
-                    "Groceries",
-                    "Personal Care",
-                    "Other",
+                    "Food", "Transport", "Entertainment", "Shopping", "Bills",
+                    "Health", "Education", "Subscriptions", "Groceries",
+                    "Personal Care", "Other",
                   ],
                 },
                 amount: { type: "number" },
@@ -53,14 +45,30 @@ const PARSE_TOOLS = [
   },
 ];
 
-function buildSystemPrompt(history: any[], financialScore: number, todayTotal: number, weekTotal: number) {
+function buildSystemPrompt(
+  history: any[],
+  financialScore: number,
+  todayTotal: number,
+  weekTotal: number,
+  budgetLimits: any[],
+  budgetSpending: Record<string, number>
+) {
   const historyLines = history
     .slice(0, 60)
-    .map(
-      (log: any) =>
-        `${log.date}: ${JSON.stringify(log.items)} (total: $${log.total})`
-    )
+    .map((log: any) => `${log.date}: ${JSON.stringify(log.items)} (total: $${log.total})`)
     .join("\n");
+
+  // Build budget warnings
+  let budgetSection = "";
+  if (budgetLimits.length > 0) {
+    const budgetLines = budgetLimits.map((b: any) => {
+      const spent = budgetSpending[b.category] || 0;
+      const pct = b.monthly_limit > 0 ? ((spent / b.monthly_limit) * 100).toFixed(0) : "0";
+      const status = spent > b.monthly_limit ? "🚨 OVER LIMIT" : Number(pct) >= 80 ? "⚠️ NEAR LIMIT" : "✅ OK";
+      return `- ${b.category}: $${spent.toFixed(2)} / $${b.monthly_limit} (${pct}%) ${status}`;
+    }).join("\n");
+    budgetSection = `\n## BUDGET LIMITS (THIS MONTH)\n${budgetLines}\n\n**IMPORTANT**: If any category is NEAR LIMIT (≥80%) or OVER LIMIT, you MUST warn the user about it proactively. Be specific about which categories and how much they can still spend. If they just logged spending in a near/over-limit category, make it a prominent warning.`;
+  }
 
   return `You are FinanceAI, an intelligent financial advisor that lives in the user's pocket. You understand natural language spending input and provide sharp, actionable financial advice.
 
@@ -72,6 +80,7 @@ function buildSystemPrompt(history: any[], financialScore: number, todayTotal: n
 5. **Financial score**: Current score is ${financialScore}/100.
 6. **Daily summaries**: When asked, summarize the day's spending.
 7. **Weekly insights**: When asked, analyze the week's patterns.
+8. **Budget monitoring**: Warn users when approaching or exceeding budget limits.
 
 ## USER'S SPENDING HISTORY
 Today's total: $${todayTotal.toFixed(2)}
@@ -79,18 +88,20 @@ This week's total: $${weekTotal.toFixed(2)}
 
 Recent logs:
 ${historyLines || "No spending logged yet. This is a new user."}
+${budgetSection}
 
 ## RULES
 - Be concise but insightful (2-3 paragraphs max)
 - Use specific numbers from their data, never generic advice
 - If they log spending, acknowledge the parsed amounts, then give insight
+- **Always check budget limits after logging spending and warn if near/over**
 - Detect patterns: "You've been spending a lot on X lately" or "Your transport costs are consistent"
 - Always answer: "What should the user do?"
 - Use bullet points for clarity
 - Be encouraging but honest
 - If the user asks about their score, explain what affects it
-- For daily summary: show total, category breakdown, key advice
-- For weekly: show trends, biggest category, recommendations
+- For daily summary: show total, category breakdown, key advice, and budget status
+- For weekly: show trends, biggest category, recommendations, and budget alerts
 - When the user hasn't logged much yet, encourage them to keep logging for better insights`;
 }
 
@@ -169,23 +180,40 @@ serve(async (req) => {
     let todayTotal = 0;
     let weekTotal = 0;
     let financialScore = 50;
+    let budgetLimits: any[] = [];
+    let budgetSpending: Record<string, number> = {};
 
     if (user) {
-      // Fetch spending history (last 30 days)
+      // Fetch spending history and budget limits in parallel
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-      const { data: logs } = await supabase
-        .from("spending_logs")
-        .select("*")
-        .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
-        .order("date", { ascending: false });
+      const [logsResult, budgetsResult] = await Promise.all([
+        supabase
+          .from("spending_logs")
+          .select("*")
+          .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
+          .order("date", { ascending: false }),
+        supabase.from("budget_limits").select("*"),
+      ]);
 
-      history = logs || [];
+      history = logsResult.data || [];
+      budgetLimits = budgetsResult.data || [];
 
       const today = new Date().toISOString().split("T")[0];
       const weekAgo = new Date();
       weekAgo.setDate(weekAgo.getDate() - 7);
+
+      // Calculate current month spending per category
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      const monthLogs = history.filter((h: any) => new Date(h.date) >= monthStart);
+      for (const log of monthLogs) {
+        const items = log.items || [];
+        for (const item of items) {
+          budgetSpending[item.category] = (budgetSpending[item.category] || 0) + (item.amount || 0);
+        }
+      }
 
       todayTotal = history
         .filter((h: any) => h.date === today)
@@ -236,7 +264,8 @@ serve(async (req) => {
       console.error("Parse phase error:", e);
     }
 
-    // Store parsed spending
+    // Store parsed spending and update budget tracking
+    let budgetWarnings: string[] = [];
     if (parsedItems.length > 0) {
       const total = parsedItems.reduce(
         (sum: number, item: any) => sum + (item.amount || 0),
@@ -253,6 +282,22 @@ serve(async (req) => {
           total,
           date: logDate,
         });
+      }
+
+      // Update budget spending with newly parsed items
+      for (const item of parsedItems) {
+        budgetSpending[item.category] = (budgetSpending[item.category] || 0) + (item.amount || 0);
+      }
+
+      // Check for budget limit violations
+      for (const budget of budgetLimits) {
+        const spent = budgetSpending[budget.category] || 0;
+        if (spent > budget.monthly_limit) {
+          budgetWarnings.push(`🚨 OVER BUDGET: ${budget.category} - spent $${spent.toFixed(2)} of $${budget.monthly_limit} limit`);
+        } else if (budget.monthly_limit > 0 && (spent / budget.monthly_limit) >= 0.8) {
+          const remaining = budget.monthly_limit - spent;
+          budgetWarnings.push(`⚠️ NEAR LIMIT: ${budget.category} - $${remaining.toFixed(2)} remaining of $${budget.monthly_limit}`);
+        }
       }
 
       history = [
@@ -274,7 +319,9 @@ serve(async (req) => {
       history,
       financialScore,
       todayTotal,
-      weekTotal
+      weekTotal,
+      budgetLimits,
+      budgetSpending
     );
 
     // Add parsed items context to the latest message if any
@@ -287,9 +334,15 @@ serve(async (req) => {
       const itemsSummary = parsedItems
         .map((i: any) => `${i.category}: $${i.amount} (${i.description})`)
         .join(", ");
+      
+      let budgetContext = "";
+      if (budgetWarnings.length > 0) {
+        budgetContext = `\n\nBUDGET ALERTS after this spending:\n${budgetWarnings.join("\n")}\n\n**You MUST warn the user about these budget alerts prominently.**`;
+      }
+
       enhancedMessages.push({
         role: "system",
-        content: `[SYSTEM: The user just logged spending. Parsed items: ${itemsSummary}. Total: $${total}. Updated today's total: $${todayTotal.toFixed(2)}. Acknowledge this and provide insight. Financial score: ${financialScore}/100]`,
+        content: `[SYSTEM: The user just logged spending. Parsed items: ${itemsSummary}. Total: $${total}. Updated today's total: $${todayTotal.toFixed(2)}. Financial score: ${financialScore}/100. Acknowledge this and provide insight.${budgetContext}]`,
       });
     }
 
@@ -337,6 +390,7 @@ serve(async (req) => {
             items: parsedItems,
             total: parsedItems.reduce((s: number, i: any) => s + i.amount, 0),
             score: financialScore,
+            budgetWarnings,
           })}\n\n`
         )
       : null;
