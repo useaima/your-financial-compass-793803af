@@ -15,6 +15,8 @@ serve(async (req) => {
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
 
+    const today = new Date().toISOString().slice(0, 10);
+
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -26,19 +28,29 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are a stock market analyst who tracks recommendations from top investment advisory services like Motley Fool, Seeking Alpha, and major Wall Street firms. Generate current stock investment recommendations based on real market trends and analysis as of ${new Date().toISOString().slice(0, 10)}.
+            content: `You are a stock market analyst who closely follows Motley Fool Stock Advisor and Rule Breakers newsletters, as well as recommendations from top Wall Street firms. Generate current stock investment recommendations as of ${today}.
 
-Include stocks that are currently being recommended by major advisory services. For example, ASML Holdings is currently being recommended by Motley Fool. Include a mix of:
-- Tech stocks (semiconductors, AI, cloud)
-- Growth stocks
-- Dividend stocks
-- International stocks
+CRITICAL: You MUST include stocks that Motley Fool is currently recommending or has recently recommended in their Stock Advisor newsletter. Key current Motley Fool picks include:
+- ASML Holdings (ASML) — Motley Fool Stock Advisor recommendation, monopoly in EUV lithography
+- Nvidia (NVDA) — Motley Fool Stock Advisor, AI chip leader
+- MercadoLibre (MELI) — Motley Fool recommendation, Latin America e-commerce leader
+- CrowdStrike (CRWD) — Motley Fool recommendation, cybersecurity leader
+- Amazon (AMZN) — Long-standing Motley Fool recommendation
 
-Be specific about WHY each stock is recommended and include realistic price targets.`,
+Also include picks from Goldman Sachs, Morgan Stanley, JP Morgan, and Barclays research.
+
+Provide a diverse mix:
+- At least 3 Motley Fool Stock Advisor picks
+- 2-3 Wall Street analyst picks
+- Mix of sectors: Tech, Healthcare, Finance, Consumer, Industrial
+- Mix of risk levels: Low, Medium, High
+- Include both growth and value stocks
+
+For Motley Fool picks, mention specific newsletter context (e.g., "Recently recommended in Motley Fool Stock Advisor" or "Long-time Motley Fool Rule Breakers pick"). Be specific about investment thesis and catalysts.`,
           },
           {
             role: "user",
-            content: "Generate today's top stock recommendations with details on why to invest, price targets, and risk levels.",
+            content: `Generate today's top stock recommendations. Prioritize current Motley Fool Stock Advisor picks alongside Wall Street analyst recommendations. Include specific price targets and investment rationale.`,
           },
         ],
         tools: [
@@ -46,7 +58,7 @@ Be specific about WHY each stock is recommended and include realistic price targ
             type: "function",
             function: {
               name: "generate_recommendations",
-              description: "Generate stock investment recommendations",
+              description: "Generate stock investment recommendations synced with Motley Fool newsletters and Wall Street research",
               parameters: {
                 type: "object",
                 properties: {
@@ -61,17 +73,26 @@ Be specific about WHY each stock is recommended and include realistic price targ
                         current_price: { type: "string", description: "Approximate current price" },
                         target_price: { type: "string", description: "12-month price target" },
                         upside: { type: "string", description: "Potential upside percentage" },
-                        reason: { type: "string", description: "2-3 sentence explanation of why to invest" },
-                        source: { type: "string", description: "Advisory source recommending this", enum: ["Motley Fool", "Seeking Alpha", "Goldman Sachs", "Morgan Stanley", "JP Morgan", "Bank of America", "Barclays"] },
+                        reason: { type: "string", description: "3-4 sentence explanation including specific catalysts, newsletter context, and why to invest now" },
+                        source: { type: "string", enum: ["Motley Fool Stock Advisor", "Motley Fool Rule Breakers", "Seeking Alpha", "Goldman Sachs", "Morgan Stanley", "JP Morgan", "Bank of America", "Barclays"] },
                         risk_level: { type: "string", enum: ["Low", "Medium", "High"] },
                         sector: { type: "string", enum: ["Technology", "Healthcare", "Finance", "Energy", "Consumer", "Industrial", "Real Estate"] },
+                        newsletter_note: { type: "string", description: "For Motley Fool picks: specific newsletter context like 'Active Stock Advisor pick since 2023' or 'Recently added to Rule Breakers'" },
                       },
                       required: ["ticker", "company", "recommendation", "current_price", "target_price", "upside", "reason", "source", "risk_level", "sector"],
                       additionalProperties: false,
                     },
                   },
+                  market_pulse: {
+                    type: "string",
+                    description: "Brief 1-2 sentence market overview for today",
+                  },
+                  motley_fool_focus: {
+                    type: "string",
+                    description: "What Motley Fool newsletters are currently highlighting as key themes",
+                  },
                 },
-                required: ["recommendations"],
+                required: ["recommendations", "market_pulse", "motley_fool_focus"],
                 additionalProperties: false,
               },
             },
