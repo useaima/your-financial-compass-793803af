@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { TrendingUp, Loader2, RefreshCw, ArrowUpRight, ShieldCheck, AlertTriangle, BarChart3 } from "lucide-react";
+import { TrendingUp, Loader2, RefreshCw, ArrowUpRight, ShieldCheck, AlertTriangle, BarChart3, Bookmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,7 @@ interface StockRec {
   source: string;
   risk_level: string;
   sector: string;
+  newsletter_note?: string;
 }
 
 const riskColors: Record<string, string> = {
@@ -32,6 +33,8 @@ const recColors: Record<string, string> = {
 
 export default function StockPicks() {
   const [recs, setRecs] = useState<StockRec[]>([]);
+  const [marketPulse, setMarketPulse] = useState("");
+  const [foolFocus, setFoolFocus] = useState("");
   const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState("All");
 
@@ -42,6 +45,8 @@ export default function StockPicks() {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       setRecs(data.recommendations || []);
+      setMarketPulse(data.market_pulse || "");
+      setFoolFocus(data.motley_fool_focus || "");
     } catch (e: any) {
       toast.error(e.message || "Failed to fetch recommendations");
     } finally {
@@ -51,13 +56,14 @@ export default function StockPicks() {
 
   const sectors = ["All", ...new Set(recs.map((r) => r.sector))];
   const filtered = filter === "All" ? recs : recs.filter((r) => r.sector === filter);
+  const isMotleyFool = (source: string) => source.toLowerCase().includes("motley fool");
 
   return (
     <div className="p-4 md:p-8 max-w-4xl mx-auto space-y-6 pb-24 md:pb-8">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="flex items-start justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Stock Picks</h1>
-          <p className="text-sm text-muted-foreground mt-1">AI-curated investment recommendations from top advisory services</p>
+          <p className="text-sm text-muted-foreground mt-1">AI-curated picks synced with Motley Fool & Wall Street research</p>
         </div>
         <button
           onClick={fetchRecs}
@@ -73,14 +79,14 @@ export default function StockPicks() {
       <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 flex items-start gap-2">
         <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
-          <strong className="text-foreground">Disclaimer:</strong> These are AI-generated recommendations based on market analysis. Not financial advice. Always do your own research before investing.
+          <strong className="text-foreground">Disclaimer:</strong> AI-generated recommendations based on publicly available research from Motley Fool, Wall Street analysts, and market data. Not financial advice. Always do your own research.
         </p>
       </div>
 
       {loading && (
         <div className="flex flex-col items-center justify-center py-20 gap-4">
           <Loader2 className="w-8 h-8 text-primary animate-spin" />
-          <p className="text-sm text-muted-foreground">Analyzing stock recommendations...</p>
+          <p className="text-sm text-muted-foreground">Syncing with Motley Fool & analyst research...</p>
         </div>
       )}
 
@@ -90,13 +96,34 @@ export default function StockPicks() {
             <BarChart3 className="w-8 h-8 text-primary" />
           </div>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Get AI-curated stock picks from Motley Fool, Goldman Sachs, and other top advisory services.
+            Get AI-curated stock picks synced with Motley Fool Stock Advisor newsletters, Goldman Sachs, and other top research firms.
           </p>
         </div>
       )}
 
       {!loading && recs.length > 0 && (
         <>
+          {/* Market Pulse & Motley Fool Focus */}
+          {(marketPulse || foolFocus) && (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-3">
+              {marketPulse && (
+                <div className="rounded-xl border border-border bg-card p-4">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">Market Pulse</p>
+                  <p className="text-sm text-foreground">{marketPulse}</p>
+                </div>
+              )}
+              {foolFocus && (
+                <div className="rounded-xl border border-primary/20 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Bookmark className="w-3.5 h-3.5 text-primary" />
+                    <p className="text-xs font-semibold text-primary uppercase tracking-wider">Motley Fool Focus</p>
+                  </div>
+                  <p className="text-sm text-foreground">{foolFocus}</p>
+                </div>
+              )}
+            </motion.div>
+          )}
+
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-2 flex-wrap">
             {sectors.map((s) => (
               <button
@@ -119,7 +146,12 @@ export default function StockPicks() {
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.05 }}
-                className="rounded-xl border border-border bg-card p-5 space-y-3"
+                className={cn(
+                  "rounded-xl border p-5 space-y-3",
+                  isMotleyFool(rec.source)
+                    ? "border-primary/30 bg-primary/[0.02]"
+                    : "border-border bg-card"
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
@@ -132,6 +164,12 @@ export default function StockPicks() {
                         <ShieldCheck className="w-3 h-3" />
                         {rec.risk_level} Risk
                       </span>
+                      {isMotleyFool(rec.source) && (
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary border border-primary/20 inline-flex items-center gap-1">
+                          <Bookmark className="w-3 h-3" />
+                          Fool Pick
+                        </span>
+                      )}
                     </div>
                     <p className="text-sm text-muted-foreground">{rec.company}</p>
                   </div>
@@ -155,6 +193,14 @@ export default function StockPicks() {
                 </div>
 
                 <p className="text-xs text-muted-foreground leading-relaxed">{rec.reason}</p>
+
+                {rec.newsletter_note && (
+                  <div className="bg-primary/5 rounded-lg px-3 py-2 border border-primary/10">
+                    <p className="text-[10px] text-primary font-medium">
+                      📬 {rec.newsletter_note}
+                    </p>
+                  </div>
+                )}
 
                 <div className="flex items-center gap-3 pt-1">
                   <span className="text-[10px] text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">{rec.sector}</span>
