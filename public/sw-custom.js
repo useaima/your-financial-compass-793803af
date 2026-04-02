@@ -97,15 +97,8 @@ self.addEventListener('notificationclick', (event) => {
 });
 
 // Offline support — serve cached page when offline
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => {
-        return caches.match('/index.html');
-      })
-    );
-  }
-});
+// NOTE: Do NOT add a fetch event listener here. Workbox handles caching.
+// Adding one here conflicts with the Lovable preview proxy and causes blank pages.
 
 // Message handler for client communication
 self.addEventListener('message', (event) => {
