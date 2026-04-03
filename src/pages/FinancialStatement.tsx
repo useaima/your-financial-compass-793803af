@@ -72,7 +72,7 @@ export default function FinancialStatement() {
         heightLeft -= pageHeight;
       }
 
-      pdf.save("FinanceAI-Financial-Statement.pdf");
+      pdf.save("eva-Financial-Statement.pdf");
       toast.success("PDF downloaded successfully!");
     } catch {
       toast.error("Failed to export PDF");

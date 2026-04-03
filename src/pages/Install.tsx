@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Download, Smartphone, CheckCircle2, Bell, Shield, Zap, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
+import evaLogo from "@/assets/eva-logo.png";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -57,9 +58,9 @@ export default function Install() {
         <motion.div
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
-          className="w-20 h-20 rounded-2xl bg-primary flex items-center justify-center mb-6"
+          className="mb-6"
         >
-          <span className="text-3xl font-bold text-primary-foreground">F</span>
+          <img src={evaLogo} alt="eva" className="w-20 h-20 rounded-2xl object-contain" />
         </motion.div>
 
         <motion.h1
@@ -68,7 +69,7 @@ export default function Install() {
           transition={{ delay: 0.1 }}
           className="text-2xl font-bold text-foreground mb-2"
         >
-          Install FinanceAI
+          Install eva
         </motion.h1>
 
         <motion.p
@@ -77,7 +78,7 @@ export default function Install() {
           transition={{ delay: 0.2 }}
           className="text-muted-foreground mb-8"
         >
-          Add FinanceAI to your home screen for the best experience.
+          Add eva to your home screen for the best experience.
         </motion.p>
 
         {isInstalled ? (

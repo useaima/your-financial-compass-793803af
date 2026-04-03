@@ -5,6 +5,7 @@ import { TrendingUp, Brain, Shield, Target, ArrowRight, Sparkles } from "lucide-
 import FAQSection from "@/components/FAQSection";
 import { landingFAQs } from "@/data/faqData";
 import SEO, { generateFAQSchema, generateOrganizationSchema } from "@/components/SEO";
+import evaLogo from "@/assets/eva-logo.png";
 
 const features = [
   { icon: Brain, title: "AI-Powered Insights", desc: "Get personalized financial advice from your intelligent advisor, 24/7." },
@@ -28,8 +29,8 @@ export default function Landing() {
   return (
     <>
       <SEO
-        title="AI-Powered Financial Advisor & Budget Planner"
-        description="FinanceAI is an AI-powered financial advisor that analyzes your spending, predicts future balances, and provides personalized money advice. Track expenses, set goals, and improve your financial health with AI."
+        title="AI-Powered Financial Advisor — Understand · Plan · Grow"
+        description="eva is an AI-powered financial advisor that analyzes your spending, predicts future balances, and provides personalized money advice. Track expenses, set goals, and improve your financial health with AI."
         schema={{ "@graph": [orgSchema, faqSchema] }}
         geo={{ region: "US", placename: "United States" }}
       />
@@ -37,10 +38,8 @@ export default function Landing() {
       {/* Nav */}
       <nav className="flex items-center justify-between px-6 py-4 max-w-[1200px] mx-auto">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-            F
-          </div>
-          <span className="font-semibold text-foreground tracking-tight text-[15px]">FinanceAI</span>
+          <img src={evaLogo} alt="eva" className="w-8 h-8 rounded-lg object-contain" />
+          <span className="font-semibold text-foreground tracking-tight text-[15px]">eva</span>
         </div>
         <div className="flex items-center gap-3">
           <Link to="/chat">
@@ -48,7 +47,7 @@ export default function Landing() {
           </Link>
           <Link to="/dashboard">
             <Button size="sm" className="gap-1.5">
-              Open prototype <ArrowRight className="w-3.5 h-3.5" />
+              Get started <ArrowRight className="w-3.5 h-3.5" />
             </Button>
           </Link>
         </div>
@@ -63,13 +62,13 @@ export default function Landing() {
           className="space-y-6"
         >
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 border border-primary/20 text-xs font-medium text-primary">
-            <Sparkles className="w-3.5 h-3.5" /> AI-Powered Financial Intelligence
+            <Sparkles className="w-3.5 h-3.5" /> Understand · Plan · Grow
           </div>
           <h1 className="text-4xl md:text-6xl font-bold tracking-tight text-foreground leading-[1.1] max-w-3xl mx-auto text-balance">
             Your money, managed by <span className="text-primary">intelligence</span>
           </h1>
           <p className="text-lg text-muted-foreground max-w-xl mx-auto leading-relaxed">
-            FinanceAI analyzes your spending, predicts your future, and gives you actionable advice in a prototype you can explore immediately, no sign-in required.
+            eva analyzes your spending, predicts your future, and gives you actionable advice — your AI-powered financial companion.
           </p>
           <div className="flex items-center justify-center gap-3 pt-4">
             <Link to="/dashboard">
@@ -118,14 +117,14 @@ export default function Landing() {
           transition={{ duration: 0.6 }}
         >
           <h2 className="text-2xl font-bold text-foreground text-center mb-2">Frequently Asked Questions</h2>
-          <p className="text-sm text-muted-foreground text-center mb-8">Everything you need to know about FinanceAI</p>
+          <p className="text-sm text-muted-foreground text-center mb-8">Everything you need to know about eva</p>
           <FAQSection faqs={landingFAQs} />
         </motion.div>
       </section>
 
       <footer className="border-t border-border px-6 py-8">
         <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-muted-foreground">© 2026 FinanceAI. All rights reserved.</p>
+          <p className="text-xs text-muted-foreground">© 2026 eva. All rights reserved.</p>
           <div className="flex gap-4">
             <Link to="/terms" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Terms</Link>
             <Link to="/privacy" className="text-xs text-muted-foreground hover:text-foreground transition-colors">Privacy</Link>

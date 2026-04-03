@@ -6,13 +6,13 @@ export default function HelpSupport() {
     <div className="p-4 md:p-8 max-w-[800px] mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <h1 className="text-2xl font-bold tracking-tight">Help & Support</h1>
-        <p className="text-sm text-muted-foreground mt-1">Get assistance with your FinanceAI account</p>
+        <p className="text-sm text-muted-foreground mt-1">Get assistance with your eva account</p>
       </motion.div>
 
       <div className="grid gap-4">
         {[
           { icon: MessageSquare, title: "Chat with AI Advisor", desc: "Ask your AI advisor any financial question in the chat tab." },
-          { icon: Mail, title: "Contact Support", desc: "Email us at support@financeai.com for account issues." },
+          { icon: Mail, title: "Contact Support", desc: "Email us at support@useaima.com for account issues." },
           { icon: HelpCircle, title: "FAQs", desc: "Common questions about spending analysis, goals, and budgets." },
         ].map((item) => (
           <motion.div

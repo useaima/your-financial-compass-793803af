@@ -14,8 +14,8 @@ export interface SEOProps {
   };
 }
 
-const DEFAULT_TITLE = 'FinanceAI — AI-Powered Financial Advisor & Budget Planner';
-const DEFAULT_DESCRIPTION = 'FinanceAI is an AI-powered financial advisor that analyzes your spending, predicts future balances, and provides personalized money advice. Free to start.';
+const DEFAULT_TITLE = 'eva — AI-Powered Financial Advisor | Understand · Plan · Grow';
+const DEFAULT_DESCRIPTION = 'eva is an AI-powered financial advisor that analyzes your spending, predicts future balances, and provides personalized money advice. Free to start.';
 const DEFAULT_OG_IMAGE = 'https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/deeeb9c0-e0e7-4edd-832e-53d3707dae6e/id-preview-5ca1457d--52f18138-cd68-4bcc-9c09-692af4d6193d.lovable.app-1774486361105.png';
 const BASE_URL = 'https://financeai.useaima.com';
 
@@ -29,19 +29,16 @@ export default function SEO({
   noindex = false,
   geo,
 }: SEOProps) {
-  const fullTitle = title ? `${title} | FinanceAI` : DEFAULT_TITLE;
+  const fullTitle = title ? `${title} | eva` : DEFAULT_TITLE;
   const canonicalUrl = canonical ? `${BASE_URL}${canonical}` : BASE_URL;
 
   useEffect(() => {
-    // Update document title
     document.title = fullTitle;
 
-    // Update meta tags
     updateMetaTag('description', description);
     updateMetaTag('robots', noindex ? 'noindex, nofollow' : 'index, follow, max-image-preview:large, max-snippet:-1');
-    updateMetaTag('author', 'FinanceAI');
+    updateMetaTag('author', 'eva');
 
-    // Update canonical
     let canonicalLink = document.querySelector('link[rel="canonical"]') as HTMLLinkElement | null;
     if (!canonicalLink) {
       canonicalLink = document.createElement('link');
@@ -50,29 +47,24 @@ export default function SEO({
     }
     canonicalLink.setAttribute('href', canonicalUrl);
 
-    // Update Open Graph
     updateMetaTag('og:title', fullTitle);
     updateMetaTag('og:description', description);
     updateMetaTag('og:image', ogImage);
     updateMetaTag('og:url', canonicalUrl);
     updateMetaTag('og:type', ogType);
-    updateMetaTag('og:site_name', 'FinanceAI');
+    updateMetaTag('og:site_name', 'eva');
 
-    // Update Twitter Card
     updateMetaTag('twitter:title', fullTitle);
     updateMetaTag('twitter:description', description);
     updateMetaTag('twitter:image', ogImage);
 
-    // Update geo tags
     if (geo) {
       if (geo.region) updateMetaTag('geo.region', geo.region);
       if (geo.placename) updateMetaTag('geo.placename', geo.placename);
     }
 
-    // Update structured data
     updateStructuredData(schema);
 
-    // Cleanup on unmount
     return () => {
       document.title = DEFAULT_TITLE;
     };
@@ -84,7 +76,6 @@ export default function SEO({
 function updateMetaTag(name: string, content: string) {
   let meta: HTMLMetaElement | null = null;
 
-  // Check for og: and twitter: prefixes
   if (name.startsWith('og:') || name.startsWith('twitter:')) {
     meta = document.querySelector(`meta[property="${name}"]`) ||
            document.querySelector(`meta[name="${name}"]`) as HTMLMetaElement;
@@ -105,13 +96,11 @@ function updateMetaTag(name: string, content: string) {
 }
 
 function updateStructuredData(schema: object | undefined) {
-  // Remove existing application/ld+json scripts
   const existingScripts = document.querySelectorAll('script[type="application/ld+json"][data-seo]');
   existingScripts.forEach(script => script.remove());
 
   if (!schema) return;
 
-  // Add new structured data
   const script = document.createElement('script');
   script.type = 'application/ld+json';
   script.setAttribute('data-seo', 'true');
@@ -164,17 +153,17 @@ export function generateHowToSchema(steps: { name: string; text: string }[]) {
 export function generateOrganizationSchema() {
   return {
     "@type": "Organization",
-    "name": "FinanceAI",
+    "name": "eva",
     "url": "https://financeai.useaima.com/",
-    "logo": "https://financeai.useaima.com/pwa-icon-512.png",
-    "description": "AI-powered financial intelligence platform",
+    "logo": "https://financeai.useaima.com/eva-logo.png",
+    "description": "AI-powered financial intelligence platform — Understand · Plan · Grow",
     "sameAs": [
-      "https://twitter.com/financeai",
-      "https://linkedin.com/company/financeai"
+      "https://twitter.com/eva_finance",
+      "https://linkedin.com/company/eva-finance"
     ],
     "contactPoint": {
       "@type": "ContactPoint",
-      "email": "support@financeai.com",
+      "email": "support@useaima.com",
       "contactType": "Customer Support"
     }
   };

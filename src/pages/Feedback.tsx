@@ -21,7 +21,7 @@ export default function Feedback() {
     <div className="p-4 md:p-8 max-w-[600px] mx-auto space-y-6">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
         <h1 className="text-2xl font-bold tracking-tight">Feedback</h1>
-        <p className="text-sm text-muted-foreground mt-1">Help us improve FinanceAI</p>
+        <p className="text-sm text-muted-foreground mt-1">Help us improve eva</p>
       </motion.div>
 
       <motion.div

@@ -31,13 +31,13 @@ export default defineConfig(({ mode }) => ({
       devOptions: {
         enabled: false,
       },
-      includeAssets: ["favicon.ico", "pwa-icon-192.png", "pwa-icon-512.png"],
+      includeAssets: ["favicon.ico", "eva-logo.png", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
-        name: "FinanceAI — Smart Financial Advisor",
-        short_name: "FinanceAI",
+        name: "eva — Understand · Plan · Grow",
+        short_name: "eva",
         description: "AI-powered financial advisor that analyzes spending, predicts balances, and provides personalized financial advice.",
-        theme_color: "#10b981",
-        background_color: "#0a0a0b",
+        theme_color: "#3a8c6e",
+        background_color: "#0f1a15",
         display: "standalone",
         orientation: "portrait",
         scope: "/",
@@ -70,14 +70,14 @@ export default defineConfig(({ mode }) => ({
             sizes: "1280x720",
             type: "image/png",
             form_factor: "wide",
-            label: "FinanceAI Dashboard",
+            label: "eva Dashboard",
           },
           {
             src: "screenshot-narrow.png",
             sizes: "750x1334",
             type: "image/png",
             form_factor: "narrow",
-            label: "FinanceAI Mobile Dashboard",
+            label: "eva Mobile Dashboard",
           },
         ],
         shortcuts: [
@@ -124,7 +124,7 @@ export default defineConfig(({ mode }) => ({
         },
         protocol_handlers: [
           {
-            protocol: "web+financeai",
+            protocol: "web+eva",
             url: "/dashboard?action=%s",
           },
         ],

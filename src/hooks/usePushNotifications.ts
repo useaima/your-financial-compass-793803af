@@ -41,9 +41,9 @@ export function usePushNotifications() {
       // Show a test notification
       if ("serviceWorker" in navigator) {
         const reg = await navigator.serviceWorker.ready;
-        reg.showNotification("FinanceAI", {
+        reg.showNotification("eva", {
           body: "You'll now receive financial insights and alerts!",
-          icon: "/pwa-icon-192.png",
+          icon: "/eva-logo.png",
           badge: "/pwa-icon-192.png",
           tag: "welcome",
         });

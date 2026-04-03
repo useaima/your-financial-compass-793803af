@@ -11,9 +11,9 @@ export default function Privacy() {
       <div className="prose prose-invert prose-sm max-w-none text-muted-foreground space-y-4">
         <p>Last updated: March 22, 2026</p>
         <h2 className="text-foreground text-lg font-medium">1. Information We Collect</h2>
-        <p>In prototype mode, FinanceAI stores basic preferences and manual entries locally in your browser. If you use AI-powered features, request data may be sent to the configured backend services to generate responses.</p>
+        <p>eva stores basic preferences and manual entries locally in your browser. If you use AI-powered features, request data may be sent to the configured backend services to generate responses.</p>
         <h2 className="text-foreground text-lg font-medium">2. How We Use Your Information</h2>
-        <p>Your data is used to provide personalized financial insights and improve the product experience. Local browser storage is used to keep your prototype settings between visits on the same device.</p>
+        <p>Your data is used to provide personalized financial insights and improve the product experience. Local browser storage is used to keep your settings between visits on the same device.</p>
         <h2 className="text-foreground text-lg font-medium">3. Data Security</h2>
         <p>We implement industry-standard security measures to protect your personal information from unauthorized access.</p>
         <h2 className="text-foreground text-lg font-medium">4. Your Rights</h2>

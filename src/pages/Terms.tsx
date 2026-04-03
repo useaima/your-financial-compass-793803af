@@ -11,13 +11,13 @@ export default function Terms() {
       <div className="prose prose-invert prose-sm max-w-none text-muted-foreground space-y-4">
         <p>Last updated: March 22, 2026</p>
         <h2 className="text-foreground text-lg font-medium">1. Acceptance of Terms</h2>
-        <p>By accessing or using FinanceAI, you agree to be bound by these Terms of Service. If you do not agree, do not use the prototype.</p>
+        <p>By accessing or using eva, you agree to be bound by these Terms of Service. If you do not agree, do not use the application.</p>
         <h2 className="text-foreground text-lg font-medium">2. Description of Service</h2>
-        <p>FinanceAI provides AI-powered financial insights and advisory tools. The service is for informational purposes only and does not constitute financial advice.</p>
+        <p>eva provides AI-powered financial insights and advisory tools. The service is for informational purposes only and does not constitute financial advice.</p>
         <h2 className="text-foreground text-lg font-medium">3. User Responsibilities</h2>
-        <p>You are responsible for the information you enter into the prototype and for how you use any generated insights.</p>
+        <p>You are responsible for the information you enter and for how you use any generated insights.</p>
         <h2 className="text-foreground text-lg font-medium">4. Limitation of Liability</h2>
-        <p>FinanceAI is provided "as is" without warranties. We are not liable for financial decisions made based on the service's output.</p>
+        <p>eva is provided "as is" without warranties. We are not liable for financial decisions made based on the service's output.</p>
       </div>
     </div>
   );

@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import evaLogo from "@/assets/eva-logo.png";
 
 const menuItems = [
   { path: "/chat", label: "AI Advisor", icon: MessageSquare },
@@ -46,10 +47,8 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       {/* Desktop sidebar */}
       <aside className="hidden md:flex flex-col w-[220px] border-r border-border bg-card/50 p-4 pt-6 gap-1 fixed h-screen">
         <div className="flex items-center gap-2.5 px-3 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground font-bold text-sm">
-            F
-          </div>
-          <span className="font-semibold text-foreground tracking-tight text-[15px]">FinanceAI</span>
+          <img src={evaLogo} alt="eva" className="w-8 h-8 rounded-lg object-contain" />
+          <span className="font-semibold text-foreground tracking-tight text-[15px]">eva</span>
         </div>
 
         <nav className="flex flex-col gap-0.5 flex-1">
@@ -104,9 +103,9 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
         <div className="mt-auto flex flex-col gap-2">
           <div className="px-3 py-3 rounded-xl border border-primary/15 bg-primary/5">
-            <p className="text-xs font-semibold text-foreground">Prototype Mode</p>
+            <p className="text-xs font-semibold text-foreground">Understand · Plan · Grow</p>
             <p className="text-[11px] text-muted-foreground mt-1">
-              No sign-in required. Settings and manual data stay in this browser.
+              Your AI-powered financial companion.
             </p>
           </div>
           <div className="flex items-center gap-2 px-3 py-1">

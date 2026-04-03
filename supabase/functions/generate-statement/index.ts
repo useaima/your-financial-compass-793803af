@@ -6,7 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const SYSTEM_PROMPT = `You are FinanceAI, a financial statement generator. Based on the user's financial data, generate a comprehensive monthly financial statement in the style of the CASHFLOW board game by Robert Kiyosaki.
+const SYSTEM_PROMPT = `You are eva, a financial statement generator. Based on the user's financial data, generate a comprehensive monthly financial statement in the style of the CASHFLOW board game by Robert Kiyosaki.
 
 User's Financial Data:
 - Monthly Salary Income: ~$7,700 (two paychecks)
