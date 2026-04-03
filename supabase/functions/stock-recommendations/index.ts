@@ -13,41 +13,45 @@ serve(async (req) => {
 
   try {
     const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
-    const PARALLEL_API_KEY = Deno.env.get("PARALLEL_API_KEY");
+    const TAVILY_API_KEY = Deno.env.get("TAVILY_API_KEY");
 
-    if (!GROQ_API_KEY || !PARALLEL_API_KEY) {
-      throw new Error("GROQ_API_KEY or PARALLEL_API_KEY is not configured");
+    if (!GROQ_API_KEY || !TAVILY_API_KEY) {
+      throw new Error("GROQ_API_KEY or TAVILY_API_KEY is not configured");
     }
 
     const today = new Date().toISOString().slice(0, 10);
 
-    // 1. SEARCH PHASE (Parallel API)
-    // We search for the absolute latest data to overcome LLM training cutoffs
-    const searchQuery = "Latest Motley Fool Stock Advisor picks and Wall Street analyst ratings " + today;
+    // 1. SEARCH PHASE (Tavily API - Built for LLMs)
+    const searchQuery = `Latest Motley Fool Stock Advisor picks and Wall Street analyst ratings for ${today}`;
     
-    console.log(`Searching for: ${searchQuery}`);
+    console.log(`Searching via Tavily for: ${searchQuery}`);
     
-    const searchResponse = await fetch("https://api.parallel.xyz/v1/search", {
+    const searchResponse = await fetch("https://api.tavily.com/search", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer ${PARALLEL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
+        api_key: TAVILY_API_KEY,
         query: searchQuery,
-        limit: 5,
+        search_depth: "advanced",
+        include_answer: false,
+        max_results: 5,
+        topic: "news"
       }),
     });
 
     let searchContext = "";
     if (searchResponse.ok) {
       const searchData = await searchResponse.json();
-      searchContext = JSON.stringify(searchData.results);
+      searchContext = searchData.results.map((r: any) => 
+        `Source: ${r.url}\nTitle: ${r.title}\nContent: ${r.content}\n`
+      ).join("\n---\n");
     } else {
-      console.warn("Parallel search failed, falling back to general knowledge");
+      console.warn("Tavily search failed, falling back to general knowledge");
     }
 
-    // 2. INFERENCE PHASE (Groq API - Ultra fast)
+    // 2. INFERENCE PHASE (Groq API - Ultra fast Llama 3)
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -61,12 +65,12 @@ serve(async (req) => {
             role: "system",
             content: `You are eva's Market Intelligence module. Your task is to process real-time search results and provide current stock recommendations.
             
-            REAL-TIME CONTEXT FROM WEB SEARCH:
+            REAL-TIME WEB CONTEXT:
             ${searchContext || "No recent search results found. Use general market trends for " + today}
 
-            CRITICAL: Focus on Motley Fool Stock Advisor's most recent recommendations found in the context.
+            CRITICAL: Prioritize Motley Fool Stock Advisor's most recent recommendations found in the context.
             
-            Return a JSON object matching this structure:
+            Return a JSON object with this structure:
             {
               "recommendations": [
                 {
@@ -80,7 +84,7 @@ serve(async (req) => {
                   "source": "Motley Fool Stock Advisor|Goldman Sachs|etc",
                   "risk_level": "Low|Medium|High",
                   "sector": "Technology|Healthcare|etc",
-                  "newsletter_note": "Specific context from the search results"
+                  "newsletter_note": "Specific context like 'Active Stock Advisor pick since Jan 2026'"
                 }
               ],
               "market_pulse": "Brief 1-2 sentence market overview for today",
@@ -89,7 +93,7 @@ serve(async (req) => {
           },
           {
             role: "user",
-            content: `Generate today's top stock recommendations using the provided search context. Date: ${today}`,
+            content: `Generate top stock recommendations using the provided search context. Focus on Motley Fool. Date: ${today}`,
           },
         ],
         response_format: { type: "json_object" },
