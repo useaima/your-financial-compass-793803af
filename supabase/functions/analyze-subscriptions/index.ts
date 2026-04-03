@@ -58,7 +58,7 @@ serve(async (req) => {
         : `Your monthly subscription cost ($${Math.round(totalMonthly)}) is quite high. Look for opportunities to reduce.`
       : null;
 
-    const systemPrompt = `You are FinanceAI, a subscription analyzer. Analyze the user's subscriptions and provide recommendations.
+    const systemPrompt = `You are eva, a subscription analyzer. Analyze the user's subscriptions and provide recommendations.
 
 Subscriptions Data:
 ${subscriptions.map((s: Subscription) => `- ${s.name}: $${s.price}/${s.billing_cycle} (${s.category})`).join("\n")}
