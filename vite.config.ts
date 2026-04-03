@@ -70,7 +70,7 @@ export default defineConfig(({ mode }) => ({
             sizes: "1280x720",
             type: "image/png",
             form_factor: "wide",
-            label: "FinanceAI Dashboard",
+            label: "eva Dashboard",
           },
           {
             src: "screenshot-narrow.png",
