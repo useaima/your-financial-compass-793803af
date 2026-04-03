@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => ({
       devOptions: {
         enabled: false,
       },
-      includeAssets: ["favicon.ico", "pwa-icon-192.png", "pwa-icon-512.png"],
+      includeAssets: ["favicon.ico", "eva-logo.png", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
         name: "eva — Understand · Plan · Grow",
         short_name: "eva",
