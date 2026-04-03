@@ -14,6 +14,62 @@ interface Subscription {
   category: string;
 }
 
+function getMonthlyPrice(subscription: Subscription) {
+  return subscription.billing_cycle === "yearly" ? subscription.price / 12 : subscription.price;
+}
+
+function buildFallbackRecommendations(subscriptions: Subscription[]) {
+  const categoryCounts = subscriptions.reduce<Record<string, number>>((acc, subscription) => {
+    acc[subscription.category] = (acc[subscription.category] || 0) + 1;
+    return acc;
+  }, {});
+  const totalMonthly = subscriptions.reduce((sum, subscription) => sum + getMonthlyPrice(subscription), 0);
+  const highestMonthlyPrice = subscriptions.reduce((highest, subscription) => {
+    return Math.max(highest, getMonthlyPrice(subscription));
+  }, 0);
+
+  return subscriptions.map((subscription) => {
+    const monthlyPrice = getMonthlyPrice(subscription);
+    const hasCategoryOverlap = (categoryCounts[subscription.category] || 0) > 1;
+
+    if (monthlyPrice >= 25 && hasCategoryOverlap) {
+      return {
+        subscriptionId: subscription.id,
+        action: "cancel" as const,
+        reason: `${subscription.name} is one of several ${subscription.category.toLowerCase()} subscriptions and costs more than most of the rest.`,
+        savings: Number(monthlyPrice.toFixed(2)),
+      };
+    }
+
+    if (monthlyPrice >= 18 || hasCategoryOverlap) {
+      return {
+        subscriptionId: subscription.id,
+        action: "review" as const,
+        reason: hasCategoryOverlap
+          ? `${subscription.name} overlaps with another ${subscription.category.toLowerCase()} subscription, so it is worth checking for duplicate value.`
+          : `${subscription.name} is meaningful recurring spend, so confirm you are actively using it each month.`,
+        savings: Number((monthlyPrice * 0.35).toFixed(2)),
+      };
+    }
+
+    if (totalMonthly >= 25 && monthlyPrice === highestMonthlyPrice) {
+      return {
+        subscriptionId: subscription.id,
+        action: "review" as const,
+        reason: `${subscription.name} is your highest monthly subscription, so a downgrade or pause would create the quickest savings.`,
+        savings: Number((monthlyPrice * 0.4).toFixed(2)),
+      };
+    }
+
+    return {
+      subscriptionId: subscription.id,
+      action: "keep" as const,
+      reason: `${subscription.name} is relatively low cost and does not stand out as an obvious cut right now.`,
+      savings: 0,
+    };
+  });
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -29,12 +85,9 @@ serve(async (req) => {
       });
     }
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
-
     // Calculate totals client-side to save tokens
     const totalMonthly = subscriptions.reduce((sum: number, sub: Subscription) => {
-      const monthlyPrice = sub.billing_cycle === "yearly" ? sub.price / 12 : sub.price;
+      const monthlyPrice = getMonthlyPrice(sub);
       return sum + monthlyPrice;
     }, 0);
 
@@ -46,7 +99,7 @@ serve(async (req) => {
     // Calculate category breakdown
     const categoryBreakdown: Record<string, number> = {};
     subscriptions.forEach((sub: Subscription) => {
-      const monthlyPrice = sub.billing_cycle === "yearly" ? sub.price / 12 : sub.price;
+      const monthlyPrice = getMonthlyPrice(sub);
       categoryBreakdown[sub.category] = (categoryBreakdown[sub.category] || 0) + monthlyPrice;
     });
 
@@ -57,6 +110,33 @@ serve(async (req) => {
         ? `You have ${subscriptions.length} active subscriptions, which may be overwhelming. Consider reviewing for redundancies.`
         : `Your monthly subscription cost ($${Math.round(totalMonthly)}) is quite high. Look for opportunities to reduce.`
       : null;
+
+    const fallbackRecommendations = buildFallbackRecommendations(subscriptions);
+    const fallbackSavingsProjection = {
+      monthly: fallbackRecommendations.reduce(
+        (sum, recommendation) => sum + recommendation.savings,
+        0,
+      ),
+      yearly: 0,
+    };
+    fallbackSavingsProjection.yearly = fallbackSavingsProjection.monthly * 12;
+
+    const fallbackResult = {
+      totalMonthly: Math.round(totalMonthly),
+      totalYearly: Math.round(totalYearly),
+      categoryBreakdown,
+      recommendations: fallbackRecommendations,
+      overwhelmDetected,
+      overwhelmMessage,
+      savingsProjection: fallbackSavingsProjection,
+    };
+
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
+    if (!LOVABLE_API_KEY) {
+      return new Response(JSON.stringify(fallbackResult), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     const systemPrompt = `You are eva, a subscription analyzer. Analyze the user's subscriptions and provide recommendations.
 
@@ -117,17 +197,8 @@ Return JSON with recommendations array containing: subscriptionId, action, reaso
     });
 
     if (!response.ok) {
-      const status = response.status;
-      if (status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text = await response.text();
-      console.error("AI gateway error:", status, text);
-      return new Response(JSON.stringify({ error: "AI service error" }), {
-        status: 500,
+      console.error("AI gateway error:", response.status, await response.text());
+      return new Response(JSON.stringify(fallbackResult), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -147,12 +218,7 @@ Return JSON with recommendations array containing: subscriptionId, action, reaso
       recommendations = parsed.recommendations || [];
     } else {
       // Fallback: generate basic recommendations if AI doesn't return structured output
-      recommendations = subscriptions.map((sub: Subscription) => ({
-        subscriptionId: sub.id,
-        action: "review" as const,
-        reason: "Review this subscription to ensure it aligns with your current needs.",
-        savings: sub.billing_cycle === "yearly" ? sub.price / 12 : sub.price,
-      }));
+      recommendations = fallbackRecommendations;
     }
 
     // Calculate savings projection (total from cancel recommendations)
@@ -166,8 +232,8 @@ Return JSON with recommendations array containing: subscriptionId, action, reaso
 
     return new Response(
       JSON.stringify({
-        totalMonthly: Math.round(totalMonthly),
-        totalYearly: Math.round(totalYearly),
+        totalMonthly: fallbackResult.totalMonthly,
+        totalYearly: fallbackResult.totalYearly,
         categoryBreakdown,
         recommendations,
         overwhelmDetected,

@@ -45,6 +45,144 @@ const PARSE_TOOLS = [
   },
 ];
 
+const CATEGORY_KEYWORDS: Array<[string, RegExp]> = [
+  ["Food", /\b(lunch|dinner|breakfast|coffee|snack|meal|restaurant|takeout|food)\b/i],
+  ["Groceries", /\b(grocer|supermarket|market|vegetable|fruit)\b/i],
+  ["Transport", /\b(uber|taxi|bus|train|fuel|gas|transport|fare|matatu)\b/i],
+  ["Entertainment", /\b(movie|cinema|netflix|spotify|concert|game|entertainment)\b/i],
+  ["Shopping", /\b(shop|shopping|clothes|amazon|mall|purchase)\b/i],
+  ["Bills", /\b(rent|bill|utility|electricity|water|internet|airtime|phone)\b/i],
+  ["Health", /\b(pharmacy|doctor|clinic|medicine|health)\b/i],
+  ["Education", /\b(book|course|tuition|school|education)\b/i],
+  ["Subscriptions", /\b(subscription|plan|membership)\b/i],
+  ["Personal Care", /\b(haircut|salon|barber|skincare|personal care)\b/i],
+];
+
+function inferCategory(description: string) {
+  for (const [category, pattern] of CATEGORY_KEYWORDS) {
+    if (pattern.test(description)) return category;
+  }
+  return "Other";
+}
+
+function fallbackParseSpending(text: string) {
+  const items: Array<{ category: string; amount: number; description: string }> = [];
+  const primaryPattern =
+    /\$?(\d+(?:\.\d{1,2})?)\s+(?:for|on)\s+([a-z0-9][^,.!?\n]*?)(?=(?:\s+(?:and|,)\s+\$?\d)|[.!?]|$)/gi;
+  let match;
+
+  while ((match = primaryPattern.exec(text)) !== null) {
+    const amount = Number(match[1]);
+    const description = match[2].trim();
+    if (!Number.isFinite(amount) || !description) continue;
+    items.push({
+      category: inferCategory(description),
+      amount,
+      description,
+    });
+  }
+
+  if (items.length > 0) {
+    return items.slice(0, 5);
+  }
+
+  const secondaryPattern = /([a-z][a-z\s]{2,30}?)\s+\$?(\d+(?:\.\d{1,2})?)/gi;
+  while ((match = secondaryPattern.exec(text)) !== null) {
+    const description = match[1].trim();
+    const amount = Number(match[2]);
+    if (!Number.isFinite(amount) || !description) continue;
+    items.push({
+      category: inferCategory(description),
+      amount,
+      description,
+    });
+  }
+
+  return items.slice(0, 5);
+}
+
+function buildFallbackAdvice(
+  lastUserMsg: string,
+  parsedItems: any[],
+  todayTotal: number,
+  weekTotal: number,
+  financialScore: number,
+  budgetWarnings: string[]
+) {
+  const lower = lastUserMsg.toLowerCase();
+
+  if (parsedItems.length > 0) {
+    const total = parsedItems.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+    const biggest = parsedItems.reduce((largest: any, item: any) => {
+      if (!largest || item.amount > largest.amount) return item;
+      return largest;
+    }, null);
+    const dailyGuardrail = Math.max(15, Math.round(Math.max(0, 60 - total)));
+
+    return [
+      "## Spending captured",
+      `- Logged ${parsedItems.length} item(s) for $${total.toFixed(2)}.`,
+      biggest
+        ? `- Biggest item: ${biggest.category} at $${Number(biggest.amount).toFixed(2)} for ${biggest.description}.`
+        : `- Today's total is now $${todayTotal.toFixed(2)}.`,
+      budgetWarnings.length > 0
+        ? `- Budget alert: ${budgetWarnings[0]}`
+        : `- Running totals: $${todayTotal.toFixed(2)} today and $${weekTotal.toFixed(2)} this week.`,
+      "",
+      "## What to do next",
+      `- Keep the rest of today under about $${dailyGuardrail} to protect your score.`,
+      "- Log your next purchase right away so eva can spot patterns before they become expensive habits.",
+    ].join("\n");
+  }
+
+  if (lower.includes("daily") || lower.includes("today")) {
+    return [
+      "## Today's snapshot",
+      `- Total logged today: $${todayTotal.toFixed(2)}.`,
+      `- Current financial score: ${financialScore}/100.`,
+      `- Weekly running total: $${weekTotal.toFixed(2)}.`,
+      "",
+      "## What to do next",
+      "- Keep non-essential spending low for the rest of the day and log any new expense immediately.",
+    ].join("\n");
+  }
+
+  if (lower.includes("week")) {
+    return [
+      "## Weekly snapshot",
+      `- Total logged this week: $${weekTotal.toFixed(2)}.`,
+      `- Current financial score: ${financialScore}/100.`,
+      budgetWarnings.length > 0
+        ? `- Priority warning: ${budgetWarnings[0]}`
+        : "- Your biggest opportunity is to keep discretionary spending stable across the week.",
+      "",
+      "## What to do next",
+      "- Review one category you can cap before the weekend and keep logging for a cleaner trend line.",
+    ].join("\n");
+  }
+
+  if (lower.includes("score")) {
+    return [
+      "## Financial score",
+      `- Current score: ${financialScore}/100.`,
+      "- You improve it by logging consistently, avoiding sharp spending spikes, and staying inside category limits.",
+      "",
+      "## What to do next",
+      "- Aim for steady daily spending and cut one non-essential purchase this week.",
+    ].join("\n");
+  }
+
+  return [
+    "## Quick money check",
+    `- Current score: ${financialScore}/100.`,
+    `- Logged today: $${todayTotal.toFixed(2)}.`,
+    `- Logged this week: $${weekTotal.toFixed(2)}.`,
+    "",
+    "## What to do next",
+    "- Tell me what you spent or ask for a daily summary, weekly review, or score breakdown.",
+  ].join("\n");
+}
+
 function buildSystemPrompt(
   history: any[],
   financialScore: number,
@@ -151,8 +289,7 @@ serve(async (req) => {
 
   try {
     const { messages } = await req.json();
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
 
     // Get user from auth header
     const authHeader = req.headers.get("authorization") ?? "";
@@ -230,38 +367,44 @@ serve(async (req) => {
 
     // Phase 1: Try to parse spending from the latest user message (non-streaming)
     let parsedItems: any[] = [];
-    try {
-      const parseResponse = await fetch(AI_URL, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "google/gemini-2.5-flash-lite",
-          messages: [
-            {
-              role: "system",
-              content:
-                "You are a spending parser. If the user's message contains any spending, expenses, or purchases, use the log_spending tool to extract them. If there is no spending data, respond normally with a brief acknowledgment.",
-            },
-            { role: "user", content: lastUserMsg },
-          ],
-          tools: PARSE_TOOLS,
-          tool_choice: "auto",
-        }),
-      });
+    if (LOVABLE_API_KEY) {
+      try {
+        const parseResponse = await fetch(AI_URL, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${LOVABLE_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "google/gemini-2.5-flash-lite",
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a spending parser. If the user's message contains any spending, expenses, or purchases, use the log_spending tool to extract them. If there is no spending data, respond normally with a brief acknowledgment.",
+              },
+              { role: "user", content: lastUserMsg },
+            ],
+            tools: PARSE_TOOLS,
+            tool_choice: "auto",
+          }),
+        });
 
-      if (parseResponse.ok) {
-        const parseData = await parseResponse.json();
-        const toolCall = parseData.choices?.[0]?.message?.tool_calls?.[0];
-        if (toolCall?.function?.name === "log_spending") {
-          const args = JSON.parse(toolCall.function.arguments);
-          parsedItems = args.items || [];
+        if (parseResponse.ok) {
+          const parseData = await parseResponse.json();
+          const toolCall = parseData.choices?.[0]?.message?.tool_calls?.[0];
+          if (toolCall?.function?.name === "log_spending") {
+            const args = JSON.parse(toolCall.function.arguments);
+            parsedItems = args.items || [];
+          }
         }
+      } catch (e) {
+        console.error("Parse phase error:", e);
       }
-    } catch (e) {
-      console.error("Parse phase error:", e);
+    }
+
+    if (parsedItems.length === 0) {
+      parsedItems = fallbackParseSpending(lastUserMsg);
     }
 
     // Store parsed spending and update budget tracking
@@ -346,39 +489,60 @@ serve(async (req) => {
       });
     }
 
-    const response = await fetch(AI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [{ role: "system", content: systemPrompt }, ...enhancedMessages],
-        stream: true,
-      }),
-    });
+    let assistantResponse: Response | null = null;
+    if (LOVABLE_API_KEY) {
+      assistantResponse = await fetch(AI_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "google/gemini-3-flash-preview",
+          messages: [{ role: "system", content: systemPrompt }, ...enhancedMessages],
+          stream: true,
+        }),
+      }).catch((error) => {
+        console.error("AI gateway request failed:", error);
+        return null;
+      });
+    }
 
-    if (!response.ok) {
-      const status = response.status;
-      if (status === 429) {
-        return new Response(
-          JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }),
-          { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
+    if (!assistantResponse?.ok) {
+      if (assistantResponse) {
+        const status = assistantResponse.status;
+        const text = await assistantResponse.text();
+        console.error("AI gateway error:", status, text);
       }
-      if (status === 402) {
-        return new Response(
-          JSON.stringify({ error: "AI credits exhausted." }),
-          { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-      const text = await response.text();
-      console.error("AI gateway error:", status, text);
-      return new Response(
-        JSON.stringify({ error: "AI service error" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+
+      const fallbackText = buildFallbackAdvice(
+        lastUserMsg,
+        parsedItems,
+        todayTotal,
+        weekTotal,
+        financialScore,
+        budgetWarnings
       );
+      const fallbackEvents: string[] = [];
+      if (parsedItems.length > 0) {
+        fallbackEvents.push(
+          `data: ${JSON.stringify({
+            type: "spending_parsed",
+            items: parsedItems,
+            total: parsedItems.reduce((s: number, i: any) => s + i.amount, 0),
+            score: financialScore,
+            budgetWarnings,
+          })}\n\n`
+        );
+      }
+      fallbackEvents.push(
+        `data: ${JSON.stringify({ choices: [{ delta: { content: fallbackText } }] })}\n\n`
+      );
+      fallbackEvents.push("data: [DONE]\n\n");
+
+      return new Response(fallbackEvents.join(""), {
+        headers: { ...corsHeaders, "Content-Type": "text/event-stream" },
+      });
     }
 
     // Prepend parsed items metadata as a custom SSE event
@@ -402,7 +566,7 @@ serve(async (req) => {
     (async () => {
       try {
         if (metaEvent) await writer.write(metaEvent);
-        const reader = response.body!.getReader();
+        const reader = assistantResponse.body!.getReader();
         while (true) {
           const { done, value } = await reader.read();
           if (done) break;

@@ -52,7 +52,7 @@ export default function CashflowDiagram({
             positive ? "border-primary bg-primary/5" : "border-destructive bg-destructive/5"
           )}
         >
-          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Monthly Cash Flow</p>
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cash Flow Loop</p>
           <p className={cn("text-2xl font-bold tabular-nums mt-1", positive ? "text-primary" : "text-destructive")}>
             {formatCurrency(monthlyCashflow)}
           </p>

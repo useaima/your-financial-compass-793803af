@@ -32,31 +32,48 @@ export default function AgentInsights() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!hasSupabaseConfig) {
-      setLoading(false);
-      return;
-    }
+    let active = true;
+    let channel: ReturnType<typeof supabase.channel> | null = null;
 
-    fetchNotifications();
+    const initNotifications = async () => {
+      if (!hasSupabaseConfig) {
+        if (active) setLoading(false);
+        return;
+      }
 
-    // Subscribe to new notifications
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-        },
-        (payload) => {
-          setNotifications((prev) => [payload.new as Notification, ...prev]);
-        }
-      )
-      .subscribe();
+      const { data } = await supabase.auth.getSession();
+      if (!active) return;
+
+      if (!data.session) {
+        setLoading(false);
+        return;
+      }
+
+      await fetchNotifications();
+
+      channel = supabase
+        .channel('schema-db-changes')
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+          },
+          (payload) => {
+            setNotifications((prev) => [payload.new as Notification, ...prev]);
+          }
+        )
+        .subscribe();
+    };
+
+    void initNotifications();
 
     return () => {
-      supabase.removeChannel(channel);
+      active = false;
+      if (channel) {
+        supabase.removeChannel(channel);
+      }
     };
   }, []);
 
