@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Newspaper, Loader2, RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -38,6 +38,11 @@ export default function News() {
   const [filter, setFilter] = useState<string>("All");
 
   const fetchNews = async () => {
+    if (!hasSupabaseConfig) {
+      toast.error(SUPABASE_SETUP_MESSAGE);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data, error } = await supabase.functions.invoke("fetch-finance-news");

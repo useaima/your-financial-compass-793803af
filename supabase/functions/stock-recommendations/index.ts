@@ -12,124 +12,103 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY is not configured");
+    const GROQ_API_KEY = Deno.env.get("GROQ_API_KEY");
+    const PARALLEL_API_KEY = Deno.env.get("PARALLEL_API_KEY");
+
+    if (!GROQ_API_KEY || !PARALLEL_API_KEY) {
+      throw new Error("GROQ_API_KEY or PARALLEL_API_KEY is not configured");
+    }
 
     const today = new Date().toISOString().slice(0, 10);
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    // 1. SEARCH PHASE (Parallel API)
+    // We search for the absolute latest data to overcome LLM training cutoffs
+    const searchQuery = "Latest Motley Fool Stock Advisor picks and Wall Street analyst ratings " + today;
+    
+    console.log(`Searching for: ${searchQuery}`);
+    
+    const searchResponse = await fetch("https://api.parallel.xyz/v1/search", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Authorization": `Bearer ${PARALLEL_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          {
-            role: "system",
-            content: `You are a stock market analyst who closely follows Motley Fool Stock Advisor and Rule Breakers newsletters, as well as recommendations from top Wall Street firms. Generate current stock investment recommendations as of ${today}.
-
-CRITICAL: You MUST include stocks that Motley Fool is currently recommending or has recently recommended in their Stock Advisor newsletter. Key current Motley Fool picks include:
-- ASML Holdings (ASML) — Motley Fool Stock Advisor recommendation, monopoly in EUV lithography
-- Nvidia (NVDA) — Motley Fool Stock Advisor, AI chip leader
-- MercadoLibre (MELI) — Motley Fool recommendation, Latin America e-commerce leader
-- CrowdStrike (CRWD) — Motley Fool recommendation, cybersecurity leader
-- Amazon (AMZN) — Long-standing Motley Fool recommendation
-
-Also include picks from Goldman Sachs, Morgan Stanley, JP Morgan, and Barclays research.
-
-Provide a diverse mix:
-- At least 3 Motley Fool Stock Advisor picks
-- 2-3 Wall Street analyst picks
-- Mix of sectors: Tech, Healthcare, Finance, Consumer, Industrial
-- Mix of risk levels: Low, Medium, High
-- Include both growth and value stocks
-
-For Motley Fool picks, mention specific newsletter context (e.g., "Recently recommended in Motley Fool Stock Advisor" or "Long-time Motley Fool Rule Breakers pick"). Be specific about investment thesis and catalysts.`,
-          },
-          {
-            role: "user",
-            content: `Generate today's top stock recommendations. Prioritize current Motley Fool Stock Advisor picks alongside Wall Street analyst recommendations. Include specific price targets and investment rationale.`,
-          },
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_recommendations",
-              description: "Generate stock investment recommendations synced with Motley Fool newsletters and Wall Street research",
-              parameters: {
-                type: "object",
-                properties: {
-                  recommendations: {
-                    type: "array",
-                    items: {
-                      type: "object",
-                      properties: {
-                        ticker: { type: "string", description: "Stock ticker symbol e.g. ASML" },
-                        company: { type: "string", description: "Full company name" },
-                        recommendation: { type: "string", enum: ["Strong Buy", "Buy", "Hold"] },
-                        current_price: { type: "string", description: "Approximate current price" },
-                        target_price: { type: "string", description: "12-month price target" },
-                        upside: { type: "string", description: "Potential upside percentage" },
-                        reason: { type: "string", description: "3-4 sentence explanation including specific catalysts, newsletter context, and why to invest now" },
-                        source: { type: "string", enum: ["Motley Fool Stock Advisor", "Motley Fool Rule Breakers", "Seeking Alpha", "Goldman Sachs", "Morgan Stanley", "JP Morgan", "Bank of America", "Barclays"] },
-                        risk_level: { type: "string", enum: ["Low", "Medium", "High"] },
-                        sector: { type: "string", enum: ["Technology", "Healthcare", "Finance", "Energy", "Consumer", "Industrial", "Real Estate"] },
-                        newsletter_note: { type: "string", description: "For Motley Fool picks: specific newsletter context like 'Active Stock Advisor pick since 2023' or 'Recently added to Rule Breakers'" },
-                      },
-                      required: ["ticker", "company", "recommendation", "current_price", "target_price", "upside", "reason", "source", "risk_level", "sector"],
-                      additionalProperties: false,
-                    },
-                  },
-                  market_pulse: {
-                    type: "string",
-                    description: "Brief 1-2 sentence market overview for today",
-                  },
-                  motley_fool_focus: {
-                    type: "string",
-                    description: "What Motley Fool newsletters are currently highlighting as key themes",
-                  },
-                },
-                required: ["recommendations", "market_pulse", "motley_fool_focus"],
-                additionalProperties: false,
-              },
-            },
-          },
-        ],
-        tool_choice: { type: "function", function: { name: "generate_recommendations" } },
+        query: searchQuery,
+        limit: 5,
       }),
     });
 
-    if (!response.ok) {
-      if (response.status === 429) {
-        return new Response(JSON.stringify({ error: "Rate limit exceeded." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      const text = await response.text();
-      console.error("AI gateway error:", response.status, text);
-      return new Response(JSON.stringify({ error: "AI service error" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let searchContext = "";
+    if (searchResponse.ok) {
+      const searchData = await searchResponse.json();
+      searchContext = JSON.stringify(searchData.results);
+    } else {
+      console.warn("Parallel search failed, falling back to general knowledge");
     }
 
-    const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
-    if (!toolCall) {
-      return new Response(JSON.stringify({ error: "Failed to generate recommendations" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    // 2. INFERENCE PHASE (Groq API - Ultra fast)
+    const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${GROQ_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "llama-3.3-70b-versatile",
+        messages: [
+          {
+            role: "system",
+            content: `You are eva's Market Intelligence module. Your task is to process real-time search results and provide current stock recommendations.
+            
+            REAL-TIME CONTEXT FROM WEB SEARCH:
+            ${searchContext || "No recent search results found. Use general market trends for " + today}
+
+            CRITICAL: Focus on Motley Fool Stock Advisor's most recent recommendations found in the context.
+            
+            Return a JSON object matching this structure:
+            {
+              "recommendations": [
+                {
+                  "ticker": "...",
+                  "company": "...",
+                  "recommendation": "Strong Buy|Buy|Hold",
+                  "current_price": "...",
+                  "target_price": "...",
+                  "upside": "...",
+                  "reason": "3-4 sentences explaining the 'why' based on the search context",
+                  "source": "Motley Fool Stock Advisor|Goldman Sachs|etc",
+                  "risk_level": "Low|Medium|High",
+                  "sector": "Technology|Healthcare|etc",
+                  "newsletter_note": "Specific context from the search results"
+                }
+              ],
+              "market_pulse": "Brief 1-2 sentence market overview for today",
+              "motley_fool_focus": "Key themes Motley Fool is currently highlighting"
+            }`,
+          },
+          {
+            role: "user",
+            content: `Generate today's top stock recommendations using the provided search context. Date: ${today}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+
+    if (!groqResponse.ok) {
+      const errorText = await groqResponse.text();
+      console.error("Groq error:", errorText);
+      throw new Error("Failed to generate recommendations via Groq");
     }
 
-    const recs = JSON.parse(toolCall.function.arguments);
-    return new Response(JSON.stringify(recs), {
+    const groqData = await groqResponse.json();
+    const result = JSON.parse(groqData.choices[0].message.content);
+
+    return new Response(JSON.stringify(result), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (e) {
     console.error("stock-recommendations error:", e);
     return new Response(

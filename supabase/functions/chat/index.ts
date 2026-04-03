@@ -181,7 +181,7 @@ serve(async (req) => {
     let weekTotal = 0;
     let financialScore = 50;
     let budgetLimits: any[] = [];
-    let budgetSpending: Record<string, number> = {};
+    const budgetSpending: Record<string, number> = {};
 
     if (user) {
       // Fetch spending history and budget limits in parallel
@@ -265,7 +265,7 @@ serve(async (req) => {
     }
 
     // Store parsed spending and update budget tracking
-    let budgetWarnings: string[] = [];
+    const budgetWarnings: string[] = [];
     if (parsedItems.length > 0) {
       const total = parsedItems.reduce(
         (sum: number, item: any) => sum + (item.amount || 0),

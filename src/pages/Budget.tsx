@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Plus, Trash2, Edit2, Check, X, DollarSign, AlertTriangle } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +36,11 @@ export default function Budget() {
 
   const loadData = async () => {
     setLoading(true);
+    if (!hasSupabaseConfig) {
+      setLoading(false);
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
@@ -69,6 +74,11 @@ export default function Budget() {
 
   const addBudget = async () => {
     if (!newCategory || !newLimit) return;
+    if (!hasSupabaseConfig) {
+      toast.error(SUPABASE_SETUP_MESSAGE);
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { toast.error("Please sign in"); return; }
 
@@ -93,6 +103,11 @@ export default function Budget() {
 
   const updateBudget = async (id: string) => {
     if (!editLimit) return;
+    if (!hasSupabaseConfig) {
+      toast.error(SUPABASE_SETUP_MESSAGE);
+      return;
+    }
+
     const { error } = await supabase.from("budget_limits")
       .update({ monthly_limit: parseFloat(editLimit) })
       .eq("id", id);
@@ -104,6 +119,11 @@ export default function Budget() {
   };
 
   const deleteBudget = async (id: string) => {
+    if (!hasSupabaseConfig) {
+      toast.error(SUPABASE_SETUP_MESSAGE);
+      return;
+    }
+
     const { error } = await supabase.from("budget_limits").delete().eq("id", id);
     if (error) { toast.error("Failed to delete"); return; }
     toast.success("Budget removed");
@@ -173,6 +193,12 @@ export default function Budget() {
 
       {loading ? (
         <div className="text-center text-muted-foreground py-12 text-sm">Loading...</div>
+      ) : !hasSupabaseConfig ? (
+        <div className="text-center py-16 space-y-3">
+          <DollarSign className="w-12 h-12 text-muted-foreground/30 mx-auto" />
+          <p className="text-muted-foreground text-sm">Budget sync is waiting for Supabase setup</p>
+          <p className="text-xs text-muted-foreground/70">{SUPABASE_SETUP_MESSAGE}</p>
+        </div>
       ) : budgets.length === 0 ? (
         <div className="text-center py-16 space-y-3">
           <DollarSign className="w-12 h-12 text-muted-foreground/30 mx-auto" />

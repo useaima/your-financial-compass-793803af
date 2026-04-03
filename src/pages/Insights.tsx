@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Loader2, RefreshCw, TrendingUp, TrendingDown, AlertTriangle, Lightbulb } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -45,6 +45,11 @@ export default function Insights() {
   const [frequency, setFrequency] = useState<Frequency>("monthly");
 
   const generate = async () => {
+    if (!hasSupabaseConfig) {
+      toast.error(SUPABASE_SETUP_MESSAGE);
+      return;
+    }
+
     setLoading(true);
     try {
       const { data: result, error } = await supabase.functions.invoke("generate-insights", {

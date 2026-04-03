@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sparkles, AlertTriangle, Lightbulb, Trophy, Bell, Check, X } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
 import { cn } from "@/lib/utils";
 
 interface Notification {
@@ -32,6 +32,11 @@ export default function AgentInsights() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!hasSupabaseConfig) {
+      setLoading(false);
+      return;
+    }
+
     fetchNotifications();
 
     // Subscribe to new notifications
@@ -56,6 +61,8 @@ export default function AgentInsights() {
   }, []);
 
   async function fetchNotifications() {
+    if (!hasSupabaseConfig) return;
+
     try {
       const { data, error } = await supabase
         .from("notifications")
@@ -73,6 +80,8 @@ export default function AgentInsights() {
   }
 
   async function markAsRead(id: string) {
+    if (!hasSupabaseConfig) return;
+
     try {
       const { error } = await supabase
         .from("notifications")
@@ -89,6 +98,8 @@ export default function AgentInsights() {
   }
 
   async function deleteNotification(id: string) {
+    if (!hasSupabaseConfig) return;
+
     try {
       const { error } = await supabase
         .from("notifications")
@@ -121,7 +132,9 @@ export default function AgentInsights() {
         <div>
           <h3 className="text-sm font-semibold">Your AI Agent is Analyzing...</h3>
           <p className="text-xs text-muted-foreground mt-1">
-            Log some spending to receive personalized financial insights.
+            {hasSupabaseConfig
+              ? "Log some spending to receive personalized financial insights."
+              : "Add your Vercel Supabase env vars to turn on live agent insights."}
           </p>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Calendar, TrendingUp, TrendingDown, DollarSign, Filter } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 import { cn } from "@/lib/utils";
 
@@ -33,6 +33,11 @@ export default function SpendingHistory() {
 
   const loadLogs = async () => {
     setLoading(true);
+    if (!hasSupabaseConfig) {
+      setLoading(false);
+      return;
+    }
+
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
@@ -103,6 +108,12 @@ export default function SpendingHistory() {
 
       {loading ? (
         <div className="text-center text-muted-foreground py-12 text-sm">Loading...</div>
+      ) : !hasSupabaseConfig ? (
+        <div className="text-center py-16 space-y-3">
+          <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto" />
+          <p className="text-muted-foreground text-sm">Spending history is waiting for Supabase setup</p>
+          <p className="text-xs text-muted-foreground/70">{SUPABASE_SETUP_MESSAGE}</p>
+        </div>
       ) : logs.length === 0 ? (
         <div className="text-center py-16 space-y-3">
           <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto" />
