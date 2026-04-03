@@ -21,8 +21,9 @@ serve(async (req) => {
 
     const today = new Date().toISOString().slice(0, 10);
 
-    // 1. SEARCH PHASE (Tavily API - Built for LLMs)
-    const searchQuery = `Latest Motley Fool Stock Advisor picks and Wall Street analyst ratings for ${today}`;
+    // 1. SEARCH PHASE (Tavily API)
+    // We explicitly ask for "current prices" to force the search engine to find live data
+    const searchQuery = `Current stock prices and latest Motley Fool Stock Advisor picks as of ${today}. Focus on real-time market data.`;
     
     console.log(`Searching via Tavily for: ${searchQuery}`);
     
@@ -35,23 +36,22 @@ serve(async (req) => {
         api_key: TAVILY_API_KEY,
         query: searchQuery,
         search_depth: "advanced",
-        include_answer: false,
-        max_results: 5,
-        topic: "news"
+        include_answer: true, // Let Tavily's AI try to find the answer first
+        max_results: 6,
       }),
     });
 
     let searchContext = "";
     if (searchResponse.ok) {
       const searchData = await searchResponse.json();
-      searchContext = searchData.results.map((r: any) => 
-        `Source: ${r.url}\nTitle: ${r.title}\nContent: ${r.content}\n`
-      ).join("\n---\n");
-    } else {
-      console.warn("Tavily search failed, falling back to general knowledge");
+      // Combine the Tavily AI answer with the raw search results for maximum accuracy
+      searchContext = `SUMMARY OF LIVE DATA: ${searchData.answer}\n\nDETAILED RESULTS:\n` + 
+        searchData.results.map((r: any) => 
+          `Source: ${r.url}\nTitle: ${r.title}\nContent: ${r.content}\n`
+        ).join("\n---\n");
     }
 
-    // 2. INFERENCE PHASE (Groq API - Ultra fast Llama 3)
+    // 2. INFERENCE PHASE (Groq API)
     const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -63,37 +63,23 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `You are eva's Market Intelligence module. Your task is to process real-time search results and provide current stock recommendations.
+            content: `You are eva's Real-Time Market Analyst. 
             
-            REAL-TIME WEB CONTEXT:
-            ${searchContext || "No recent search results found. Use general market trends for " + today}
+            STRICT RULES:
+            1. ONLY use stock prices found in the provided search context.
+            2. If you see a price in the context (e.g., ORCL $199, CRWD $399), use that.
+            3. DO NOT use your internal knowledge for stock prices (which is outdated).
+            4. If the search context does not mention a specific price, search for the most recent trend or mark it as "Live price unavailable".
+            5. PRIORITIZE Motley Fool Stock Advisor picks mentioned in the search context for ${today}.
 
-            CRITICAL: Prioritize Motley Fool Stock Advisor's most recent recommendations found in the context.
-            
-            Return a JSON object with this structure:
-            {
-              "recommendations": [
-                {
-                  "ticker": "...",
-                  "company": "...",
-                  "recommendation": "Strong Buy|Buy|Hold",
-                  "current_price": "...",
-                  "target_price": "...",
-                  "upside": "...",
-                  "reason": "3-4 sentences explaining the 'why' based on the search context",
-                  "source": "Motley Fool Stock Advisor|Goldman Sachs|etc",
-                  "risk_level": "Low|Medium|High",
-                  "sector": "Technology|Healthcare|etc",
-                  "newsletter_note": "Specific context like 'Active Stock Advisor pick since Jan 2026'"
-                }
-              ],
-              "market_pulse": "Brief 1-2 sentence market overview for today",
-              "motley_fool_focus": "Key themes Motley Fool is currently highlighting"
-            }`,
+            REAL-TIME WEB CONTEXT:
+            ${searchContext || "CRITICAL: No search data available. DO NOT guess prices."}
+
+            Return a valid JSON object matching the requested structure.`,
           },
           {
             role: "user",
-            content: `Generate top stock recommendations using the provided search context. Focus on Motley Fool. Date: ${today}`,
+            content: `Generate top stock recommendations. Focus on Motley Fool and ENSURE prices are accurate to ${today} based on the search context.`,
           },
         ],
         response_format: { type: "json_object" },
