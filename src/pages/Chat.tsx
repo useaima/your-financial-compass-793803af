@@ -10,7 +10,7 @@ import HealthScoreGauge from "@/components/HealthScoreGauge";
 const quickActions = [
   { label: "Log spending", prompt: "I spent $12 on lunch and $5 on coffee today", icon: Wallet },
   { label: "Daily summary", prompt: "Give me my daily spending summary", icon: Calendar },
-  { label: "Weekly insights", prompt: "Show me my weekly spending insights and trends", icon: BarChart3 },
+  { label: "Advise me", prompt: "Run a deep analysis of my spending and give me proactive advice.", icon: Sparkles },
   { label: "My score", prompt: "What's my financial score and how can I improve it?", icon: TrendingUp },
 ];
 

@@ -9,6 +9,7 @@ import {
 } from "@/data/mockData";
 import { cn } from "@/lib/utils";
 import { getPrototypeProfile } from "@/lib/prototypeProfile";
+import AgentInsights from "@/components/AgentInsights";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -248,38 +249,14 @@ export default function Dashboard() {
         </motion.div>
       </div>
 
-      {/* Smart Alerts */}
+      {/* Agent Insights */}
       <motion.div
         custom={7}
         initial="hidden"
         animate="visible"
         variants={fadeUp}
-        className="space-y-2"
       >
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-          {isEnterprise ? "Organization Insights" : "Smart Insights"}
-        </h2>
-        <div className="grid gap-2">
-          {activeAlerts.map((alert, i) => {
-            const Icon = alertIcons[alert.type];
-            return (
-              <motion.div
-                key={alert.id}
-                custom={8 + i}
-                initial="hidden"
-                animate="visible"
-                variants={fadeUp}
-                className="bg-card rounded-xl border border-border px-4 py-3 flex items-start gap-3 group cursor-pointer hover:border-primary/20 transition-colors"
-              >
-                <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", alertColors[alert.type])} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-foreground/90 leading-relaxed">{alert.message}</p>
-                </div>
-                <ArrowRight className="w-3.5 h-3.5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
-              </motion.div>
-            );
-          })}
-        </div>
+        <AgentInsights />
       </motion.div>
 
       {/* E-books Section */}
