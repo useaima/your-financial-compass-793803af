@@ -16,8 +16,8 @@ export interface SEOProps {
 
 const DEFAULT_TITLE = 'eva — Your AI Finance Assistant';
 const DEFAULT_DESCRIPTION = 'eva is your AI finance assistant for spending clarity, planning confidence, and calmer cashflow decisions.';
-const DEFAULT_OG_IMAGE = 'https://financeai.useaima.com/eva-og.png';
-const BASE_URL = 'https://financeai.useaima.com';
+const DEFAULT_OG_IMAGE = 'https://eva.useaima.com/eva-og.png';
+const BASE_URL = 'https://eva.useaima.com';
 
 export default function SEO({
   title,
@@ -154,8 +154,8 @@ export function generateOrganizationSchema() {
   return {
     "@type": "Organization",
     "name": "eva",
-    "url": "https://financeai.useaima.com/",
-    "logo": "https://financeai.useaima.com/eva-logo.png",
+    "url": "https://eva.useaima.com/",
+    "logo": "https://eva.useaima.com/eva-logo.png",
     "description": "Your AI Finance Assistant for spending clarity, planning confidence, and cashflow guidance.",
     "sameAs": [
       "https://twitter.com/eva_finance",

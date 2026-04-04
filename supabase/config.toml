@@ -1,9 +1,9 @@
 project_id = "iifkrhsuvxejgihubwku"
 
 [auth]
-site_url = "https://financeai.useaima.com"
+site_url = "https://eva.useaima.com"
 additional_redirect_urls = [
-  "https://financeai.useaima.com/auth",
+  "https://eva.useaima.com/auth",
   "http://localhost:5173/auth",
   "http://127.0.0.1:5173/auth",
   "http://localhost:8080/auth",
