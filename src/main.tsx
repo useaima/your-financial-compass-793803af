@@ -2,23 +2,24 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
-// Disable hosted service workers to avoid stale cached shells on deploys.
 const isInIframe = (() => {
   try {
     return window.self !== window.top;
-  } catch (e) {
+  } catch {
     return true;
   }
 })();
 
-const isLocalHost =
-  ["localhost", "127.0.0.1"].includes(window.location.hostname) ||
-  window.location.hostname.endsWith(".local");
+const hostname = window.location.hostname;
+const isPreviewHost = hostname.startsWith("id-preview--") || hostname.endsWith(".lovableproject.com");
+const shouldDisableServiceWorker = isInIframe || isPreviewHost || !import.meta.env.PROD;
 
-if (isInIframe || !isLocalHost) {
-  window.addEventListener("load", () => {
+window.addEventListener("load", () => {
+  if (shouldDisableServiceWorker) {
     navigator.serviceWorker?.getRegistrations().then((registrations) => {
-      registrations.forEach((registration) => registration.unregister());
+      registrations.forEach((registration) => {
+        void registration.unregister();
+      });
     });
 
     window.caches?.keys?.().then((keys) => {
@@ -26,7 +27,17 @@ if (isInIframe || !isLocalHost) {
         void window.caches.delete(key);
       });
     });
+
+    return;
+  }
+
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
+
+  void navigator.serviceWorker.register("/sw.js").catch((error) => {
+    console.error("Service worker registration failed:", error);
   });
-}
+});
 
 createRoot(document.getElementById("root")!).render(<App />);
