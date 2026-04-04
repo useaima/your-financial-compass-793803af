@@ -4,97 +4,50 @@
 
 @layer base {
   :root {
-    --background: 40 38% 96%;
-    --foreground: 24 22% 16%;
+    --background: 35 68% 95%;
+    --foreground: 357 20% 36%;
 
-    --card: 36 43% 99%;
-    --card-foreground: 24 22% 16%;
+    --card: 32 100% 97%;
+    --card-foreground: 357 20% 36%;
 
-    --popover: 36 43% 99%;
-    --popover-foreground: 24 22% 16%;
+    --popover: 32 100% 97%;
+    --popover-foreground: 357 20% 36%;
 
-    --primary: 33 72% 52%;
-    --primary-foreground: 24 28% 12%;
+    --primary: 37 90% 53%;
+    --primary-foreground: 0 0% 100%;
 
-    --secondary: 34 24% 92%;
-    --secondary-foreground: 24 16% 25%;
+    --secondary: 34 36% 90%;
+    --secondary-foreground: 357 16% 31%;
 
-    --muted: 34 20% 92%;
-    --muted-foreground: 24 12% 40%;
+    --muted: 34 32% 92%;
+    --muted-foreground: 29 17% 45%;
 
-    --accent: 36 28% 90%;
-    --accent-foreground: 24 18% 24%;
+    --accent: 36 61% 88%;
+    --accent-foreground: 28 55% 34%;
 
     --destructive: 11 59% 54%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 34 23% 84%;
-    --input: 34 23% 84%;
-    --ring: 33 72% 52%;
+    --border: 34 30% 84%;
+    --input: 34 30% 84%;
+    --ring: 37 90% 53%;
 
     --radius: 0.75rem;
 
-    --sidebar-background: 40 36% 95%;
-    --sidebar-foreground: 24 16% 25%;
-    --sidebar-primary: 33 72% 52%;
-    --sidebar-primary-foreground: 24 28% 12%;
-    --sidebar-accent: 34 24% 92%;
-    --sidebar-accent-foreground: 24 16% 25%;
-    --sidebar-border: 34 22% 86%;
-    --sidebar-ring: 33 72% 52%;
+    --sidebar-background: 35 72% 94%;
+    --sidebar-foreground: 357 16% 31%;
+    --sidebar-primary: 37 90% 53%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 34 36% 90%;
+    --sidebar-accent-foreground: 357 16% 31%;
+    --sidebar-border: 34 30% 84%;
+    --sidebar-ring: 37 90% 53%;
 
-    --chart-1: 33 72% 52%;
-    --chart-2: 151 58% 36%;
-    --chart-3: 16 50% 54%;
-    --chart-4: 43 55% 47%;
-    --chart-5: 28 34% 42%;
-  }
-
-  .dark {
-    --background: 20 17% 8%;
-    --foreground: 33 37% 90%;
-
-    --card: 24 18% 12%;
-    --card-foreground: 33 37% 90%;
-
-    --popover: 24 18% 12%;
-    --popover-foreground: 33 37% 90%;
-
-    --primary: 33 74% 58%;
-    --primary-foreground: 24 28% 12%;
-
-    --secondary: 23 15% 18%;
-    --secondary-foreground: 33 22% 82%;
-
-    --muted: 23 14% 16%;
-    --muted-foreground: 30 18% 66%;
-
-    --accent: 24 16% 20%;
-    --accent-foreground: 33 22% 82%;
-
-    --destructive: 10 62% 56%;
-    --destructive-foreground: 210 40% 98%;
-
-    --border: 24 12% 22%;
-    --input: 24 12% 22%;
-    --ring: 33 74% 58%;
-
-    --radius: 0.75rem;
-
-    --sidebar-background: 24 18% 10%;
-    --sidebar-foreground: 33 22% 82%;
-    --sidebar-primary: 33 74% 58%;
-    --sidebar-primary-foreground: 24 28% 12%;
-    --sidebar-accent: 24 16% 18%;
-    --sidebar-accent-foreground: 33 22% 82%;
-    --sidebar-border: 24 12% 18%;
-    --sidebar-ring: 33 74% 58%;
-
-    --chart-1: 33 74% 58%;
-    --chart-2: 151 48% 43%;
-    --chart-3: 16 54% 61%;
-    --chart-4: 43 58% 56%;
-    --chart-5: 28 36% 56%;
+    --chart-1: 37 90% 53%;
+    --chart-2: 28 73% 38%;
+    --chart-3: 5 47% 49%;
+    --chart-4: 29 25% 55%;
+    --chart-5: 43 70% 56%;
   }
 }
 
@@ -105,23 +58,22 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-family: "Manrope", "Segoe UI", sans-serif;
     font-size: 14px;
     line-height: 1.6;
     background-image:
-      radial-gradient(circle at top center, hsl(33 72% 52% / 0.12), transparent 32%),
-      radial-gradient(circle at 82% 18%, hsl(151 58% 36% / 0.08), transparent 24%);
+      radial-gradient(circle at top center, hsl(37 90% 53% / 0.16), transparent 34%),
+      radial-gradient(circle at 82% 16%, hsl(28 73% 38% / 0.08), transparent 22%),
+      linear-gradient(180deg, hsl(32 100% 97%), hsl(35 68% 95%));
     background-attachment: fixed;
   }
 
-  .dark body {
-    background-image:
-      radial-gradient(circle at top center, hsl(33 74% 58% / 0.12), transparent 28%),
-      radial-gradient(circle at 82% 18%, hsl(151 48% 43% / 0.08), transparent 22%);
+  h1, h2, h3, h4 {
+    letter-spacing: -0.02em;
   }
 
   ::selection {
-    background: hsl(33 72% 52% / 0.2);
+    background: hsl(37 90% 53% / 0.18);
     color: hsl(var(--foreground));
   }
 }
@@ -141,9 +93,9 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(28 20% 52%);
+  background: hsl(29 25% 55%);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(28 24% 42%);
+  background: hsl(28 73% 38%);
 }

@@ -32,13 +32,13 @@ export default defineConfig(({ mode }) => ({
       devOptions: {
         enabled: false,
       },
-      includeAssets: ["favicon.ico", "eva-logo.png", "pwa-icon-192.png", "pwa-icon-512.png"],
+      includeAssets: ["favicon.ico", "apple-touch-icon.png", "eva-logo.png", "eva-app-icon.png", "eva-og.png", "pwa-icon-192.png", "pwa-icon-512.png"],
       manifest: {
-        name: "eva — Understand · Plan · Grow",
+        name: "eva — Your AI Finance Assistant",
         short_name: "eva",
-        description: "AI-powered financial advisor that analyzes spending, predicts balances, and provides personalized financial advice.",
-        theme_color: "#3a8c6e",
-        background_color: "#0f1a15",
+        description: "Your AI finance assistant for spending clarity, planning confidence, and calmer cashflow decisions.",
+        theme_color: "#F3A21C",
+        background_color: "#FBF4EA",
         display: "standalone",
         orientation: "portrait",
         scope: "/",

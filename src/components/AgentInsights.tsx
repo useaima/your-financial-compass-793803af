@@ -1,225 +1,157 @@
-import { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { Sparkles, AlertTriangle, Lightbulb, Trophy, Bell, Check, X } from "lucide-react";
-import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
+import { motion } from "framer-motion";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Lightbulb,
+  Sparkles,
+  TrendingUp,
+} from "lucide-react";
+import { useMemo } from "react";
+import { usePublicUser } from "@/context/PublicUserContext";
 import { cn } from "@/lib/utils";
+import { formatCurrency } from "@/lib/finance";
 
-interface Notification {
+type InsightCard = {
   id: string;
   title: string;
   body: string;
-  type: 'insight' | 'warning' | 'tip' | 'achievement';
-  is_read: boolean;
-  created_at: string;
-}
+  type: "tip" | "warning" | "success" | "insight";
+};
 
 const typeIcons = {
   insight: Sparkles,
   warning: AlertTriangle,
   tip: Lightbulb,
-  achievement: Trophy,
+  success: CheckCircle2,
 };
 
 const typeColors = {
   insight: "text-primary",
-  warning: "text-accent",
-  tip: "text-blue-400",
-  achievement: "text-yellow-400",
+  warning: "text-[hsl(var(--chart-4))]",
+  tip: "text-[hsl(var(--chart-2))]",
+  success: "text-primary",
 };
 
 export default function AgentInsights() {
-  const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { bootstrap } = usePublicUser();
+  const summary = bootstrap.dashboard_summary;
+  const hasSpendingHistory = bootstrap.empty_flags.has_spending_history;
 
-  useEffect(() => {
-    let active = true;
-    let channel: ReturnType<typeof supabase.channel> | null = null;
+  const insights = useMemo<InsightCard[]>(() => {
+    const nextInsights: InsightCard[] = [];
 
-    const initNotifications = async () => {
-      if (!hasSupabaseConfig) {
-        if (active) setLoading(false);
-        return;
-      }
-
-      const { data } = await supabase.auth.getSession();
-      if (!active) return;
-
-      if (!data.session) {
-        setLoading(false);
-        return;
-      }
-
-      await fetchNotifications();
-
-      channel = supabase
-        .channel('schema-db-changes')
-        .on(
-          'postgres_changes',
-          {
-            event: 'INSERT',
-            schema: 'public',
-            table: 'notifications',
-          },
-          (payload) => {
-            setNotifications((prev) => [payload.new as Notification, ...prev]);
-          }
-        )
-        .subscribe();
-    };
-
-    void initNotifications();
-
-    return () => {
-      active = false;
-      if (channel) {
-        supabase.removeChannel(channel);
-      }
-    };
-  }, []);
-
-  async function fetchNotifications() {
-    if (!hasSupabaseConfig) return;
-
-    try {
-      const { data, error } = await supabase
-        .from("notifications")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      if (error) throw error;
-      setNotifications((data || []) as Notification[]);
-    } catch (err) {
-      console.error("Error fetching notifications:", err);
-    } finally {
-      setLoading(false);
+    if (!hasSpendingHistory) {
+      return [];
     }
-  }
 
-  async function markAsRead(id: string) {
-    if (!hasSupabaseConfig) return;
-
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .update({ is_read: true })
-        .eq("id", id);
-
-      if (error) throw error;
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      );
-    } catch (err) {
-      console.error("Error marking notification as read:", err);
+    if (summary.monthly_cashflow < 0) {
+      nextInsights.push({
+        id: "negative-cashflow",
+        type: "warning",
+        title: "Your monthly cash flow is negative",
+        body: `Right now your fixed monthly plan is running about ${formatCurrency(Math.abs(summary.monthly_cashflow))} below break-even. Trim recurring costs or raise income before this becomes a habit.`,
+      });
+    } else {
+      nextInsights.push({
+        id: "positive-cashflow",
+        type: "success",
+        title: "You have room to save this month",
+        body: `Your current monthly plan leaves about ${formatCurrency(summary.monthly_cashflow)} after fixed costs and subscriptions. Point that margin toward a goal before it disappears into reactive spending.`,
+      });
     }
-  }
 
-  async function deleteNotification(id: string) {
-    if (!hasSupabaseConfig) return;
-
-    try {
-      const { error } = await supabase
-        .from("notifications")
-        .delete()
-        .eq("id", id);
-
-      if (error) throw error;
-      setNotifications((prev) => prev.filter((n) => n.id !== id));
-    } catch (err) {
-      console.error("Error deleting notification:", err);
+    if (bootstrap.subscriptions.length > 0) {
+      nextInsights.push({
+        id: "subscriptions",
+        type: "tip",
+        title: "Recurring costs are already visible",
+        body: `eva is tracking ${bootstrap.subscriptions.length} subscription${bootstrap.subscriptions.length === 1 ? "" : "s"} worth about ${formatCurrency(summary.monthly_subscription_total)} each month.`,
+      });
     }
-  }
 
-  if (loading) {
+    if (bootstrap.goals.length > 0) {
+      const nextGoal = [...bootstrap.goals]
+        .sort((a, b) => a.deadline.localeCompare(b.deadline))[0];
+      nextInsights.push({
+        id: "goal-focus",
+        type: "insight",
+        title: "Your nearest goal is on the board",
+        body: `${nextGoal.name} is your closest target. Keep updating progress so eva can tell you whether your current cash flow can support the timeline.`,
+      });
+    }
+
+    return nextInsights.slice(0, 4);
+  }, [bootstrap, hasSpendingHistory, summary]);
+
+  if (!hasSpendingHistory) {
     return (
-      <div className="space-y-2 animate-pulse">
-        {[1, 2].map((i) => (
-          <div key={i} className="h-20 bg-card rounded-xl border border-border" />
-        ))}
+      <div className="rounded-[1.6rem] border border-dashed border-border bg-card p-5">
+        <div className="flex items-start gap-4">
+          <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+            <Sparkles className="h-5 w-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-foreground">Insights unlock after a few logs</h2>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              eva is waiting for real spending activity before it starts surfacing behavior
+              patterns, watch-outs, and proactive recommendations.
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
 
-  if (notifications.length === 0) {
+  if (insights.length === 0) {
     return (
-      <div className="bg-card rounded-xl border border-border p-8 text-center space-y-3">
-        <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto">
-          <Sparkles className="w-6 h-6 text-primary" />
-        </div>
-        <div>
-          <h3 className="text-sm font-semibold">Your AI Agent is Analyzing...</h3>
-          <p className="text-xs text-muted-foreground mt-1">
-            {hasSupabaseConfig
-              ? "Log some spending to receive personalized financial insights."
-              : "Add your Vercel Supabase env vars to turn on live agent insights."}
-          </p>
-        </div>
+      <div className="space-y-2">
+        {[1, 2].map((index) => (
+          <div key={index} className="h-20 rounded-xl border border-border bg-card" />
+        ))}
       </div>
     );
   }
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-2">
-          <Sparkles className="w-3 h-3 text-primary" />
-          Agent Advisor Insights
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+          <TrendingUp className="h-3 w-3 text-primary" />
+          eva insights
         </h2>
       </div>
-      
+
       <div className="grid gap-2">
-        <AnimatePresence initial={false}>
-          {notifications.map((n, i) => {
-            const Icon = typeIcons[n.type] || Bell;
-            return (
-              <motion.div
-                key={n.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ delay: i * 0.05 }}
+        {insights.map((insight, index) => {
+          const Icon = typeIcons[insight.type];
+          return (
+            <motion.div
+              key={insight.id}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: index * 0.05 }}
+              className="group flex items-start gap-4 rounded-xl border border-border bg-card p-4 transition-all hover:border-primary/30"
+            >
+              <div
                 className={cn(
-                  "bg-card rounded-xl border border-border p-4 flex items-start gap-4 group hover:border-primary/30 transition-all",
-                  !n.is_read && "border-l-primary/50 border-l-4"
+                  "mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-secondary",
+                  typeColors[insight.type],
                 )}
               >
-                <div className={cn("w-10 h-10 rounded-xl bg-secondary flex items-center justify-center shrink-0 mt-0.5", typeColors[n.type])}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2">
-                    <h3 className="text-sm font-bold text-foreground leading-tight">{n.title}</h3>
-                    <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {!n.is_read && (
-                        <button 
-                          onClick={() => markAsRead(n.id)}
-                          className="p-1 hover:bg-primary/10 rounded text-primary transition-colors"
-                          title="Mark as read"
-                        >
-                          <Check className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                      <button 
-                        onClick={() => deleteNotification(n.id)}
-                        className="p-1 hover:bg-destructive/10 rounded text-destructive transition-colors"
-                        title="Dismiss"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                  <p className="text-sm text-muted-foreground mt-1 leading-relaxed">
-                    {n.body}
-                  </p>
-                  <span className="text-[10px] text-muted-foreground/60 mt-2 block uppercase tracking-tighter">
-                    {new Date(n.created_at).toLocaleDateString()} at {new Date(n.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </span>
-                </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+                <Icon className="h-5 w-5" />
+              </div>
+
+              <div className="min-w-0 flex-1">
+                <h3 className="text-sm font-bold leading-tight text-foreground">
+                  {insight.title}
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                  {insight.body}
+                </p>
+              </div>
+            </motion.div>
+          );
+        })}
       </div>
     </div>
   );

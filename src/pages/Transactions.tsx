@@ -1,122 +1,185 @@
-import { useState, useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { Search } from "lucide-react";
-import { transactions, CATEGORY_ICONS, CATEGORY_COLORS, type TransactionCategory } from "@/data/mockData";
+import { usePublicUser } from "@/context/PublicUserContext";
+import {
+  SPENDING_CATEGORIES,
+  SPENDING_CATEGORY_COLORS,
+  SPENDING_CATEGORY_ICONS,
+  type SpendingCategory,
+  formatCurrencyDetailed,
+} from "@/lib/finance";
 import { cn } from "@/lib/utils";
 
-const categories: (TransactionCategory | "All")[] = [
-  "All", "Food & Dining", "Transport", "Entertainment", "Shopping", "Bills & Utilities", "Health", "Education", "Income",
-];
+type TransactionRow = {
+  id: string;
+  date: string;
+  merchant: string;
+  category: SpendingCategory;
+  amount: number;
+};
+
+const categories: Array<SpendingCategory | "All"> = ["All", ...SPENDING_CATEGORIES];
 
 const fadeUp = {
   hidden: { opacity: 0, y: 12, filter: "blur(4px)" },
-  visible: (i: number) => ({
-    opacity: 1, y: 0, filter: "blur(0px)",
-    transition: { delay: i * 0.03, duration: 0.4, ease: [0.16, 1, 0.3, 1] },
+  visible: (index: number) => ({
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { delay: index * 0.03, duration: 0.4, ease: [0.16, 1, 0.3, 1] },
   }),
 };
 
 export default function Transactions() {
-  const [filter, setFilter] = useState<TransactionCategory | "All">("All");
+  const { bootstrap } = usePublicUser();
+  const [filter, setFilter] = useState<SpendingCategory | "All">("All");
   const [search, setSearch] = useState("");
 
-  const filtered = useMemo(() => {
-    return transactions.filter((t) => {
-      if (filter !== "All" && t.category !== filter) return false;
-      if (search && !t.merchant.toLowerCase().includes(search.toLowerCase())) return false;
-      return true;
-    });
-  }, [filter, search]);
+  const transactions = useMemo<TransactionRow[]>(
+    () =>
+      bootstrap.spending_logs.flatMap((log) =>
+        log.items.map((item, index) => ({
+          id: `${log.id}-${index}`,
+          date: log.date,
+          merchant: item.description,
+          category: (item.category as SpendingCategory) ?? "Other",
+          amount: Number(item.amount || 0),
+        })),
+      ),
+    [bootstrap.spending_logs],
+  );
+
+  const filtered = useMemo(
+    () =>
+      transactions.filter((transaction) => {
+        if (filter !== "All" && transaction.category !== filter) return false;
+        if (
+          search &&
+          !transaction.merchant.toLowerCase().includes(search.toLowerCase())
+        ) {
+          return false;
+        }
+        return true;
+      }),
+    [filter, search, transactions],
+  );
 
   const grouped = useMemo(() => {
-    const map: Record<string, typeof filtered> = {};
-    filtered.forEach((t) => {
-      const label = new Date(t.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
-      (map[label] ||= []).push(t);
+    const groupedMap: Record<string, TransactionRow[]> = {};
+    filtered.forEach((transaction) => {
+      const label = new Date(transaction.date).toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      });
+      (groupedMap[label] ||= []).push(transaction);
     });
-    return Object.entries(map);
+    return Object.entries(groupedMap);
   }, [filtered]);
 
   return (
-    <div className="p-4 md:p-8 max-w-[800px] mx-auto space-y-5">
-      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+    <div className="mx-auto max-w-[840px] space-y-5 p-4 md:p-8">
+      <motion.div
+        initial={{ opacity: 0, y: -8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5 }}
+      >
         <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
-        <p className="text-sm text-muted-foreground mt-1">{transactions.length} transactions across 3 months</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {transactions.length === 0
+            ? "No real spending logged yet"
+            : `${transactions.length} line item${transactions.length === 1 ? "" : "s"} from your real spending logs`}
+        </p>
       </motion.div>
 
-      {/* Search */}
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.1, duration: 0.4 }}
         className="relative"
       >
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
         <input
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search merchants..."
-          className="w-full bg-card border border-border rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary/40 placeholder:text-muted-foreground"
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Search descriptions..."
+          className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
         />
       </motion.div>
 
-      {/* Category filters */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.15 }}
-        className="flex gap-1.5 overflow-x-auto pb-1 scrollbar-hide"
+        className="flex gap-1.5 overflow-x-auto pb-1"
       >
-        {categories.map((cat) => (
+        {categories.map((category) => (
           <button
-            key={cat}
-            onClick={() => setFilter(cat)}
+            key={category}
+            type="button"
+            onClick={() => setFilter(category)}
             className={cn(
-              "text-xs px-3 py-1.5 rounded-full whitespace-nowrap transition-colors shrink-0 active:scale-[0.97]",
-              filter === cat
+              "shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-xs transition-colors",
+              filter === category
                 ? "bg-primary text-primary-foreground"
-                : "bg-card border border-border text-muted-foreground hover:text-foreground"
+                : "border border-border bg-card text-muted-foreground hover:text-foreground",
             )}
           >
-            {cat !== "All" && `${CATEGORY_ICONS[cat]} `}{cat}
+            {category !== "All" && `${SPENDING_CATEGORY_ICONS[category]} `}
+            {category}
           </button>
         ))}
       </motion.div>
 
-      {/* Transaction list */}
-      <div className="space-y-4">
-        {grouped.map(([date, txns], gi) => (
-          <div key={date}>
-            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-2">{date}</p>
-            <div className="space-y-1">
-              {txns.map((t, i) => (
-                <motion.div
-                  key={t.id}
-                  custom={gi * 3 + i}
-                  initial="hidden"
-                  animate="visible"
-                  variants={fadeUp}
-                  className="flex items-center gap-3 bg-card rounded-xl border border-border px-4 py-3 hover:border-primary/15 transition-colors"
-                >
-                  <span className="text-lg">{CATEGORY_ICONS[t.category]}</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{t.merchant}</p>
-                    <p className="text-[11px] text-muted-foreground">{t.category}</p>
-                  </div>
-                  <span
-                    className={cn(
-                      "text-sm font-semibold tabular-nums",
-                      t.type === "income" ? "text-primary" : "text-foreground"
-                    )}
+      {transactions.length === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
+          <p className="text-sm font-medium text-foreground">No transactions yet</p>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Use the AI Advisor to log spending, and each item will appear here automatically.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {grouped.map(([date, transactionRows], groupIndex) => (
+            <div key={date}>
+              <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                {date}
+              </p>
+              <div className="space-y-1">
+                {transactionRows.map((transaction, index) => (
+                  <motion.div
+                    key={transaction.id}
+                    custom={groupIndex * 3 + index}
+                    initial="hidden"
+                    animate="visible"
+                    variants={fadeUp}
+                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-primary/15"
                   >
-                    {t.type === "income" ? "+" : "-"}${t.amount.toLocaleString()}
-                  </span>
-                </motion.div>
-              ))}
+                    <span className="text-lg">{SPENDING_CATEGORY_ICONS[transaction.category]}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{transaction.merchant}</p>
+                      <p className="text-[11px] text-muted-foreground">{transaction.category}</p>
+                    </div>
+                    <span
+                      className="rounded-full px-2 py-1 text-[10px] font-medium"
+                      style={{
+                        backgroundColor: `${SPENDING_CATEGORY_COLORS[transaction.category]}15`,
+                        color: SPENDING_CATEGORY_COLORS[transaction.category],
+                      }}
+                    >
+                      {transaction.category}
+                    </span>
+                    <span className="text-sm font-semibold tabular-nums text-foreground">
+                      {formatCurrencyDetailed(transaction.amount)}
+                    </span>
+                  </motion.div>
+                ))}
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

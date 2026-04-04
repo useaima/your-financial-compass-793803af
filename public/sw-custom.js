@@ -59,12 +59,12 @@ async function checkStockAlerts() {
 // Push Notifications
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'FinanceAI';
+  const title = data.title || 'eva';
   const options = {
-    body: data.body || 'You have a new financial insight!',
+    body: data.body || 'You have a new insight from eva.',
     icon: '/pwa-icon-192.png',
     badge: '/pwa-icon-192.png',
-    tag: data.tag || 'financeai-notification',
+    tag: data.tag || 'eva-notification',
     data: { url: data.url || '/' },
     actions: data.actions || [
       { action: 'open', title: 'View' },

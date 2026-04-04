@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ManualEntryForm from "@/components/financial/ManualEntryForm";
 import CashflowDiagram from "@/components/financial/CashflowDiagram";
+import { usePublicUser } from "@/context/PublicUserContext";
 import { useFinancialEntries } from "@/hooks/useFinancialEntries";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
@@ -38,6 +39,7 @@ const liabilityTypeIcons: Record<string, string> = {
 };
 
 export default function FinancialStatement() {
+  const { publicUserId } = usePublicUser();
   const [data, setData] = useState<FinancialStatementData | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -51,7 +53,7 @@ export default function FinancialStatement() {
       const canvas = await html2canvas(statementRef.current, {
         scale: 2,
         useCORS: true,
-        backgroundColor: document.documentElement.classList.contains("dark") ? "#0a0a0b" : "#ffffff",
+        backgroundColor: "#FBF4EA",
       });
       const imgData = canvas.toDataURL("image/png");
       const pdf = new jsPDF("p", "mm", "a4");
@@ -72,7 +74,7 @@ export default function FinancialStatement() {
         heightLeft -= pageHeight;
       }
 
-      pdf.save("eva-Financial-Statement.pdf");
+      pdf.save("eva-financial-statement.pdf");
       toast.success("PDF downloaded successfully!");
     } catch {
       toast.error("Failed to export PDF");
@@ -89,7 +91,9 @@ export default function FinancialStatement() {
 
     setLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke("generate-statement");
+      const { data: result, error } = await supabase.functions.invoke("generate-statement", {
+        body: { public_user_id: publicUserId },
+      });
       if (error) throw error;
       if (result?.error) throw new Error(result.error);
       setData(result);
@@ -100,26 +104,26 @@ export default function FinancialStatement() {
     }
   };
 
-  const allAssets = [...(data?.assets || []), ...manualAssets];
-  const allLiabilities = [...(data?.liabilities || []), ...manualLiabilities];
+  const allAssets = data?.assets || manualAssets;
+  const allLiabilities = data?.liabilities || manualLiabilities;
   const totalAssetValue = allAssets.reduce((s, a) => s + a.value, 0);
   const totalLiabilityBalance = allLiabilities.reduce((s, l) => s + l.balance, 0);
   const manualPassiveIncome = manualAssets.reduce((s, a) => s + a.cashflow, 0);
-  const manualPayments = manualLiabilities.reduce((s, l) => s + l.payment, 0);
-  const totalPassiveIncome = (data?.passive_income || 0) + manualPassiveIncome;
-  const adjustedCashflow = (data?.monthly_cashflow || 0) + manualPassiveIncome - manualPayments;
+  const totalPassiveIncome = data?.passive_income ?? manualPassiveIncome;
+  const adjustedCashflow = data?.monthly_cashflow ?? 0;
   const netWorth = totalAssetValue - totalLiabilityBalance;
 
   if (!data && !loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[80vh] px-6 text-center gap-6">
+      <div className="mx-auto flex min-h-[80vh] max-w-4xl flex-col items-center justify-center gap-6 px-6 text-center">
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
           <div className="w-16 h-16 rounded-2xl bg-primary/12 flex items-center justify-center mx-auto mb-4">
             <Sparkles className="w-8 h-8 text-primary" />
           </div>
           <h1 className="text-2xl font-bold tracking-tight">CASHFLOW Financial Statement</h1>
           <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
-            Generate your personal financial statement in the style of Rich Dad's CASHFLOW game.
+            Add at least one real asset or liability, then generate a statement based only on your
+            onboarding data and the balance-sheet entries you have saved.
           </p>
           <button onClick={generate}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
@@ -127,6 +131,19 @@ export default function FinancialStatement() {
             <Sparkles className="w-4 h-4" /> Generate My Statement
           </button>
         </motion.div>
+
+        <div className="w-full rounded-2xl border border-border bg-card p-5 text-left">
+          <ManualEntryForm
+            onAddAsset={addAsset}
+            onAddLiability={addLiability}
+            onEditAsset={editAsset}
+            onEditLiability={editLiability}
+            onDeleteAsset={deleteAsset}
+            onDeleteLiability={deleteLiability}
+            manualAssets={manualAssets}
+            manualLiabilities={manualLiabilities}
+          />
+        </div>
       </div>
     );
   }
@@ -180,11 +197,11 @@ export default function FinancialStatement() {
           <div className="flex gap-6 text-sm">
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Total Income</p>
-              <p className="font-semibold text-primary tabular-nums">{formatCurrency(data.total_income + manualPassiveIncome)}</p>
+              <p className="font-semibold text-primary tabular-nums">{formatCurrency(data.total_income)}</p>
             </div>
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Total Expenses</p>
-              <p className="font-semibold text-destructive tabular-nums">{formatCurrency(data.total_expenses + manualPayments)}</p>
+              <p className="font-semibold text-destructive tabular-nums">{formatCurrency(data.total_expenses)}</p>
             </div>
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Net Worth</p>
@@ -200,8 +217,8 @@ export default function FinancialStatement() {
         <CashflowDiagram
           salary={data.income.salary}
           passiveIncome={totalPassiveIncome}
-          totalIncome={data.total_income + manualPassiveIncome}
-          totalExpenses={data.total_expenses + manualPayments}
+          totalIncome={data.total_income}
+          totalExpenses={data.total_expenses}
           monthlyCashflow={adjustedCashflow}
           totalAssets={totalAssetValue}
           totalLiabilities={totalLiabilityBalance}

@@ -1,3 +1,5 @@
+import { getOrCreatePublicUserId } from "@/lib/publicUser";
+
 export type Msg = { role: "user" | "assistant"; content: string };
 
 export type ParsedSpending = {
@@ -34,7 +36,10 @@ export async function streamChat({
   const resp = await fetch(CHAT_URL, {
     method: "POST",
     headers,
-    body: JSON.stringify({ messages }),
+    body: JSON.stringify({
+      messages,
+      public_user_id: getOrCreatePublicUserId(),
+    }),
   });
 
   if (!resp.ok) {

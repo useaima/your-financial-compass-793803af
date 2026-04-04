@@ -1,99 +1,127 @@
-import { useState } from "react";
 import { toast } from "sonner";
-import type { AssetEntry, LiabilityEntry } from "@/components/financial/ManualEntryForm";
-
-const STORAGE_KEY = "financeai-manual-financial-entries";
-
-interface StoredEntries {
-  assets: AssetEntry[];
-  liabilities: LiabilityEntry[];
-}
-
-function loadStoredEntries(): StoredEntries {
-  if (typeof window === "undefined") {
-    return { assets: [], liabilities: [] };
-  }
-
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (!stored) return { assets: [], liabilities: [] };
-    return JSON.parse(stored) as StoredEntries;
-  } catch {
-    return { assets: [], liabilities: [] };
-  }
-}
-
-function saveStoredEntries(entries: StoredEntries) {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
-}
+import type {
+  AssetEntry,
+  LiabilityEntry,
+} from "@/components/financial/ManualEntryForm";
+import { usePublicUser } from "@/context/PublicUserContext";
 
 export function useFinancialEntries() {
-  const initialEntries = loadStoredEntries();
-  const [assets, setAssets] = useState<AssetEntry[]>(initialEntries.assets);
-  const [liabilities, setLiabilities] = useState<LiabilityEntry[]>(initialEntries.liabilities);
+  const {
+    bootstrap,
+    saveFinancialEntry,
+    deleteFinancialEntry,
+    saving,
+  } = usePublicUser();
 
-  const persist = (nextAssets: AssetEntry[], nextLiabilities: LiabilityEntry[]) => {
-    setAssets(nextAssets);
-    setLiabilities(nextLiabilities);
-    saveStoredEntries({ assets: nextAssets, liabilities: nextLiabilities });
-  };
+  const assets = bootstrap.financial_entries
+    .filter((entry) => entry.entry_type === "asset")
+    .map<AssetEntry>((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      value: entry.value,
+      cashflow: entry.cashflow,
+      description: entry.description ?? undefined,
+    }));
+
+  const liabilities = bootstrap.financial_entries
+    .filter((entry) => entry.entry_type === "liability")
+    .map<LiabilityEntry>((entry) => ({
+      id: entry.id,
+      name: entry.name,
+      type: entry.type,
+      balance: entry.balance,
+      payment: entry.payment,
+      description: entry.description ?? undefined,
+    }));
 
   const addAsset = async (entry: AssetEntry) => {
-    const nextAssets = [...assets, { ...entry, id: crypto.randomUUID() }];
-    persist(nextAssets, liabilities);
+    await saveFinancialEntry({
+      name: entry.name,
+      type: entry.type,
+      entry_type: "asset",
+      value: entry.value,
+      cashflow: entry.cashflow,
+      balance: 0,
+      payment: 0,
+      description: entry.description ?? "",
+    });
     toast.success("Asset added");
   };
 
   const addLiability = async (entry: LiabilityEntry) => {
-    const nextLiabilities = [...liabilities, { ...entry, id: crypto.randomUUID() }];
-    persist(assets, nextLiabilities);
+    await saveFinancialEntry({
+      name: entry.name,
+      type: entry.type,
+      entry_type: "liability",
+      value: 0,
+      cashflow: 0,
+      balance: entry.balance,
+      payment: entry.payment,
+      description: entry.description ?? "",
+    });
     toast.success("Liability added");
   };
 
   const editAsset = async (index: number, entry: AssetEntry) => {
     const existing = assets[index];
-    if (!existing) return;
+    if (!existing?.id) return;
 
-    const nextAssets = assets.map((asset, assetIndex) =>
-      assetIndex === index ? { ...entry, id: existing.id } : asset,
-    );
-    persist(nextAssets, liabilities);
+    await saveFinancialEntry({
+      id: existing.id,
+      name: entry.name,
+      type: entry.type,
+      entry_type: "asset",
+      value: entry.value,
+      cashflow: entry.cashflow,
+      balance: 0,
+      payment: 0,
+      description: entry.description ?? "",
+    });
     toast.success("Asset updated");
   };
 
   const editLiability = async (index: number, entry: LiabilityEntry) => {
     const existing = liabilities[index];
-    if (!existing) return;
+    if (!existing?.id) return;
 
-    const nextLiabilities = liabilities.map((liability, liabilityIndex) =>
-      liabilityIndex === index ? { ...entry, id: existing.id } : liability,
-    );
-    persist(assets, nextLiabilities);
+    await saveFinancialEntry({
+      id: existing.id,
+      name: entry.name,
+      type: entry.type,
+      entry_type: "liability",
+      value: 0,
+      cashflow: 0,
+      balance: entry.balance,
+      payment: entry.payment,
+      description: entry.description ?? "",
+    });
     toast.success("Liability updated");
   };
 
-  const deleteAsset = async (index: number) => {
-    const nextAssets = assets.filter((_, assetIndex) => assetIndex !== index);
-    persist(nextAssets, liabilities);
+  const removeAsset = async (index: number) => {
+    const existing = assets[index];
+    if (!existing?.id) return;
+    await deleteFinancialEntry(existing.id);
     toast.success("Asset deleted");
   };
 
-  const deleteLiability = async (index: number) => {
-    const nextLiabilities = liabilities.filter((_, liabilityIndex) => liabilityIndex !== index);
-    persist(assets, nextLiabilities);
+  const removeLiability = async (index: number) => {
+    const existing = liabilities[index];
+    if (!existing?.id) return;
+    await deleteFinancialEntry(existing.id);
     toast.success("Liability deleted");
   };
 
   return {
     assets,
     liabilities,
-    loading: false,
+    loading: saving,
     addAsset,
     addLiability,
     editAsset,
     editLiability,
-    deleteAsset,
-    deleteLiability,
+    deleteAsset: removeAsset,
+    deleteLiability: removeLiability,
   };
 }

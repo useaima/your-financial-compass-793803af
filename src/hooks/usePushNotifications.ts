@@ -38,12 +38,11 @@ export function usePushNotifications() {
 
     if (result === "granted") {
       toast.success("Notifications enabled!");
-      // Show a test notification
       if ("serviceWorker" in navigator) {
         const reg = await navigator.serviceWorker.ready;
         reg.showNotification("eva", {
-          body: "You'll now receive financial insights and alerts!",
-          icon: "/eva-logo.png",
+          body: "Your AI Finance Assistant will now send insights and reminders.",
+          icon: "/eva-app-icon.png",
           badge: "/pwa-icon-192.png",
           tag: "welcome",
         });
@@ -62,7 +61,7 @@ export function usePushNotifications() {
         const reg = await navigator.serviceWorker.ready;
         reg.showNotification(title, {
           body,
-          icon: "/pwa-icon-192.png",
+          icon: "/eva-app-icon.png",
           badge: "/pwa-icon-192.png",
           tag: tag || "financeai-" + Date.now(),
         } as NotificationOptions);

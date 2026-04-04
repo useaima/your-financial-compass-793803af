@@ -2,7 +2,9 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Sparkles, User, Loader2, TrendingUp, Wallet, BarChart3, Calendar } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { useLocation, useNavigate } from "react-router-dom";
 import { streamChat, type Msg, type ParsedSpending } from "@/lib/streamChat";
+import { usePublicUser } from "@/context/PublicUserContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import HealthScoreGauge from "@/components/HealthScoreGauge";
@@ -24,6 +26,9 @@ type ChatEntry =
   | { type: "spending"; data: SpendingBubble };
 
 export default function Chat() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { refresh } = usePublicUser();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState("");
@@ -31,16 +36,36 @@ export default function Chat() {
   const [score, setScore] = useState<number | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const hasAutostarted = useRef(false);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries]);
 
+  useEffect(() => {
+    const starterPrompt = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.starterPrompt;
+    const autoStart = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.autoStart;
+
+    if (!starterPrompt || hasAutostarted.current) {
+      return;
+    }
+
+    hasAutostarted.current = true;
+
+    if (autoStart) {
+      void send(starterPrompt);
+    } else {
+      setInput(starterPrompt);
+    }
+
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate, send]);
+
   const addEntry = useCallback((entry: ChatEntry) => {
     setEntries((prev) => [...prev, entry]);
   }, []);
 
-  const send = async (text: string) => {
+  const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
 
@@ -85,13 +110,14 @@ export default function Chat() {
         onSpendingParsed: (data: ParsedSpending) => {
           addEntry({ type: "spending", data: { items: data.items, total: data.total } });
           if (data.score) setScore(data.score);
+          void refresh();
         },
       });
     } catch {
       toast.error("Connection failed. Please try again.");
       setIsLoading(false);
     }
-  };
+  }, [addEntry, isLoading, messages, refresh]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -119,7 +145,8 @@ export default function Chat() {
             <div>
               <h1 className="text-2xl font-bold text-balance">AI Financial Advisor</h1>
               <p className="text-sm text-muted-foreground mt-2 max-w-md leading-relaxed">
-                Tell me what you spent today. I'll track it, spot patterns, and give you real advice to improve your finances.
+                Tell me what you spent today. I will track it, build your real spending history,
+                and give advice based on the data you have actually logged.
               </p>
             </div>
 

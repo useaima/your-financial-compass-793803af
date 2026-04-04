@@ -1,11 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
-
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+import {
+  buildBootstrap,
+  corsHeaders,
+  createAdminClient,
+  getPublicUserId,
+} from "../_shared/publicUserData.ts";
 
 const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
@@ -288,30 +287,10 @@ serve(async (req) => {
   }
 
   try {
-    const { messages } = await req.json();
+    const { messages, public_user_id: rawPublicUserId } = await req.json();
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
-
-    // Get user from auth header
-    const authHeader = req.headers.get("authorization") ?? "";
-    const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
-
-    const supabase = authHeader
-      ? createClient(supabaseUrl, supabaseAnonKey, {
-          global: { headers: { Authorization: authHeader } },
-        })
-      : createClient(supabaseUrl, supabaseAnonKey);
-
-    let user = null;
-    if (authHeader) {
-      const { data, error } = await supabase.auth.getUser();
-      if (error) {
-        console.warn("Proceeding without authenticated user context:", error.message);
-      } else {
-        user = data.user;
-      }
-    }
+    const publicUserId = getPublicUserId(rawPublicUserId);
+    const adminClient = createAdminClient();
 
     let history: any[] = [];
     let todayTotal = 0;
@@ -319,49 +298,33 @@ serve(async (req) => {
     let financialScore = 50;
     let budgetLimits: any[] = [];
     const budgetSpending: Record<string, number> = {};
+    const bootstrap = await buildBootstrap(publicUserId);
+    history = bootstrap.spending_logs || [];
+    budgetLimits = bootstrap.budget_limits || [];
 
-    if (user) {
-      // Fetch spending history and budget limits in parallel
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const today = new Date().toISOString().split("T")[0];
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
 
-      const [logsResult, budgetsResult] = await Promise.all([
-        supabase
-          .from("spending_logs")
-          .select("*")
-          .gte("date", thirtyDaysAgo.toISOString().split("T")[0])
-          .order("date", { ascending: false }),
-        supabase.from("budget_limits").select("*"),
-      ]);
-
-      history = logsResult.data || [];
-      budgetLimits = budgetsResult.data || [];
-
-      const today = new Date().toISOString().split("T")[0];
-      const weekAgo = new Date();
-      weekAgo.setDate(weekAgo.getDate() - 7);
-
-      // Calculate current month spending per category
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      const monthLogs = history.filter((h: any) => new Date(h.date) >= monthStart);
-      for (const log of monthLogs) {
-        const items = log.items || [];
-        for (const item of items) {
-          budgetSpending[item.category] = (budgetSpending[item.category] || 0) + (item.amount || 0);
-        }
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    const monthLogs = history.filter((h: any) => new Date(h.date) >= monthStart);
+    for (const log of monthLogs) {
+      const items = log.items || [];
+      for (const item of items) {
+        budgetSpending[item.category] = (budgetSpending[item.category] || 0) + (item.amount || 0);
       }
-
-      todayTotal = history
-        .filter((h: any) => h.date === today)
-        .reduce((sum: number, h: any) => sum + Number(h.total), 0);
-
-      weekTotal = history
-        .filter((h: any) => new Date(h.date) >= weekAgo)
-        .reduce((sum: number, h: any) => sum + Number(h.total), 0);
-
-      financialScore = calculateScore(history);
     }
+
+    todayTotal = history
+      .filter((h: any) => h.date === today)
+      .reduce((sum: number, h: any) => sum + Number(h.total), 0);
+
+    weekTotal = history
+      .filter((h: any) => new Date(h.date) >= weekAgo)
+      .reduce((sum: number, h: any) => sum + Number(h.total), 0);
+
+    financialScore = calculateScore(history);
 
     const lastUserMsg = messages[messages.length - 1]?.content || "";
 
@@ -416,16 +379,13 @@ serve(async (req) => {
       );
       const logDate = new Date().toISOString().split("T")[0];
 
-      if (user) {
-        const adminClient = createClient(supabaseUrl, supabaseServiceKey);
-        await adminClient.from("spending_logs").insert({
-          user_id: user.id,
-          raw_input: lastUserMsg,
-          items: parsedItems,
-          total,
-          date: logDate,
-        });
-      }
+      await adminClient.from("public_user_spending_logs").insert({
+        public_user_id: publicUserId,
+        raw_input: lastUserMsg,
+        items: parsedItems,
+        total,
+        date: logDate,
+      });
 
       // Update budget spending with newly parsed items
       for (const item of parsedItems) {

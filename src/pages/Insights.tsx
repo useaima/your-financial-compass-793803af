@@ -2,6 +2,7 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Loader2, RefreshCw, TrendingUp, TrendingDown, AlertTriangle, Lightbulb } from "lucide-react";
 import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { usePublicUser } from "@/context/PublicUserContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -35,16 +36,22 @@ const insightIcons: Record<string, typeof TrendingUp> = {
 const insightColors: Record<string, string> = {
   positive: "text-primary bg-primary/10 border-primary/20",
   negative: "text-destructive bg-destructive/10 border-destructive/20",
-  warning: "text-yellow-600 bg-yellow-500/10 border-yellow-500/20",
-  tip: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+  warning: "text-[hsl(var(--chart-4))] bg-[hsl(var(--chart-5)/0.16)] border-[hsl(var(--chart-5)/0.26)]",
+  tip: "text-[hsl(var(--chart-2))] bg-[hsl(var(--chart-2)/0.10)] border-[hsl(var(--chart-2)/0.18)]",
 };
 
 export default function Insights() {
+  const { bootstrap, publicUserId } = usePublicUser();
   const [data, setData] = useState<InsightsData | null>(null);
   const [loading, setLoading] = useState(false);
   const [frequency, setFrequency] = useState<Frequency>("monthly");
 
   const generate = async () => {
+    if (!bootstrap.empty_flags.has_spending_history) {
+      toast.error("Log some spending first so eva can generate real insights.");
+      return;
+    }
+
     if (!hasSupabaseConfig) {
       toast.error(SUPABASE_SETUP_MESSAGE);
       return;
@@ -53,7 +60,7 @@ export default function Insights() {
     setLoading(true);
     try {
       const { data: result, error } = await supabase.functions.invoke("generate-insights", {
-        body: { frequency },
+        body: { frequency, public_user_id: publicUserId },
       });
       if (error) throw error;
       if (result?.error) throw new Error(result.error);
@@ -113,7 +120,9 @@ export default function Insights() {
             <Sparkles className="w-8 h-8 text-primary" />
           </div>
           <p className="text-sm text-muted-foreground max-w-sm">
-            Select your preferred frequency and generate AI-powered insights about your spending habits.
+            {bootstrap.empty_flags.has_spending_history
+              ? "Select your preferred frequency and generate AI-powered insights from your real spending history."
+              : "Log a few real expenses first. Once you have spending history, eva will generate grounded insights instead of placeholders."}
           </p>
         </div>
       )}

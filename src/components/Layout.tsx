@@ -22,8 +22,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import ThemeToggle from "@/components/ThemeToggle";
-import evaLogo from "@/assets/eva-logo.png";
+import evaLockup from "@/assets/eva-lockup.png";
+import evaAppIcon from "@/assets/eva-app-icon.png";
 
 type NavItem = {
   path: string;
@@ -104,8 +104,10 @@ function SidebarButton({
       type="button"
       onClick={onClick}
       className={cn(
-        "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors relative",
-        isActive ? "bg-primary/12 text-primary" : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+        "relative flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors",
+        isActive
+          ? "bg-primary/12 text-primary shadow-[inset_0_0_0_1px_rgba(243,162,28,0.14)]"
+          : "text-muted-foreground hover:bg-secondary/90 hover:text-foreground",
       )}
     >
       <item.icon className="h-[18px] w-[18px]" />
@@ -136,10 +138,12 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen bg-background">
-      <aside className="fixed hidden h-screen w-[220px] flex-col gap-4 border-r border-border/80 bg-card/72 p-4 pt-6 backdrop-blur-xl md:flex">
-        <div className="mb-2 flex items-center gap-2.5 px-3">
-          <img src={evaLogo} alt="eva" className="h-8 w-8 rounded-lg object-contain" />
-          <span className="text-[15px] font-semibold tracking-tight text-foreground">eva</span>
+      <aside className="fixed hidden h-screen w-[236px] flex-col gap-4 border-r border-border/90 bg-[hsl(var(--sidebar-background)/0.94)] p-4 pt-5 shadow-[18px_0_45px_-38px_rgba(110,73,75,0.28)] backdrop-blur-xl md:flex">
+        <div className="rounded-[1.5rem] border border-border/90 bg-card/95 p-4 shadow-[0_18px_40px_-30px_rgba(110,73,75,0.24)]">
+          <img src={evaLockup} alt="eva" className="h-14 w-auto object-contain" />
+          <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">
+            Your AI Finance Assistant
+          </p>
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
@@ -153,14 +157,14 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
 
             <div className="space-y-1">
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Plan</p>
+              <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Plan</p>
               {primaryMenuItems.map((item) => (
                 <SidebarButton key={item.path} item={item} activePath={activePath} onClick={() => navigate(item.path)} />
               ))}
             </div>
 
             <div className="space-y-1">
-              <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Explore</p>
+              <p className="px-3 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">Explore</p>
               {utilityMenuItems.map((item) => (
                 <SidebarButton key={item.path} item={item} activePath={activePath} onClick={() => navigate(item.path)} />
               ))}
@@ -175,18 +179,16 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
 
         <div className="mt-auto flex flex-col gap-2">
-          <div className="rounded-xl border border-border bg-secondary/60 px-3 py-3">
-            <p className="text-xs font-semibold text-foreground">Understand · Plan · Grow</p>
-            <p className="mt-1 text-[11px] text-muted-foreground">Your AI-powered financial companion.</p>
-          </div>
-          <div className="flex items-center gap-2 px-3 py-1">
-            <ThemeToggle />
-            <span className="text-xs text-muted-foreground">Theme</span>
+          <div className="rounded-[1.25rem] border border-primary/15 bg-primary/[0.06] px-4 py-3">
+            <p className="text-xs font-semibold text-foreground">Your AI Finance Assistant</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              Clarity for spending, planning, and calmer cashflow decisions.
+            </p>
           </div>
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
             <House className="h-[18px] w-[18px]" />
             Back to home
@@ -194,9 +196,29 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <main className="flex-1 pb-20 md:ml-[220px] md:pb-0">{children}</main>
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-border/90 bg-[hsl(var(--background)/0.94)] shadow-[0_16px_32px_-28px_rgba(110,73,75,0.25)] backdrop-blur-xl md:hidden">
+        <div className="flex h-16 items-center justify-between px-4">
+          <div className="flex items-center gap-3">
+            <img src={evaAppIcon} alt="eva app icon" className="h-10 w-10 rounded-[1.1rem] object-cover shadow-[0_16px_28px_-18px_rgba(110,73,75,0.36)]" />
+            <div>
+              <p className="text-sm font-semibold text-foreground">eva</p>
+              <p className="text-[10px] uppercase tracking-[0.2em] text-muted-foreground">Your AI Finance Assistant</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+            aria-label="Back to home"
+          >
+            <House className="h-4 w-4" />
+          </button>
+        </div>
+      </header>
 
-      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/92 shadow-sm backdrop-blur-xl md:hidden">
+      <main className="flex-1 pb-20 pt-16 md:ml-[236px] md:pt-0 md:pb-0">{children}</main>
+
+      <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 shadow-[0_-16px_32px_-28px_rgba(110,73,75,0.22)] backdrop-blur-xl md:hidden">
         <div className="flex h-16 items-center justify-around px-2">
           {mobileTabs.map((tab) => {
             const isActive = activePath === tab.path;
@@ -264,12 +286,15 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 24 }}
               transition={{ duration: 0.2 }}
-              className="fixed inset-x-3 bottom-20 z-50 rounded-3xl border border-border bg-card p-4 shadow-lg md:hidden"
+              className="fixed inset-x-3 bottom-20 z-50 rounded-[1.75rem] border border-border bg-card p-4 shadow-[0_24px_60px_-34px_rgba(110,73,75,0.3)] md:hidden"
             >
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-foreground">More</h2>
-                  <p className="text-xs text-muted-foreground">Open tools, support, and market pages.</p>
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <img src={evaAppIcon} alt="eva app icon" className="h-10 w-10 rounded-[1rem] object-cover" />
+                  <div>
+                    <h2 className="text-sm font-semibold text-foreground">More</h2>
+                    <p className="text-xs text-muted-foreground">Open tools, support, and market pages.</p>
+                  </div>
                 </div>
                 <button
                   type="button"
@@ -284,7 +309,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
               <div className="max-h-[60vh] space-y-4 overflow-y-auto pb-1">
                 {mobileMoreSections.map((section) => (
                   <div key={section.label} className="space-y-2">
-                    <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.2em] text-muted-foreground">{section.label}</p>
+                    <p className="px-1 text-[10px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{section.label}</p>
                     <div className="grid grid-cols-2 gap-2">
                       {section.items.map((item) => {
                         const isActive = activePath === item.path;

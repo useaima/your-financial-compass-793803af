@@ -1,60 +1,73 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import {
+  buildBootstrap,
+  corsHeaders,
+  getPublicUserId,
+} from "../_shared/publicUserData.ts";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers":
-    "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
-};
+type Frequency = "daily" | "weekly" | "monthly";
 
-function buildFallbackInsights(frequency: string) {
-  const multipliers: Record<string, number> = {
-    daily: 1 / 30,
-    weekly: 1 / 4.3,
-    monthly: 1,
-  };
+function getWindowStart(frequency: Frequency) {
+  const since = new Date();
+  if (frequency === "daily") {
+    since.setDate(since.getDate() - 1);
+  } else if (frequency === "weekly") {
+    since.setDate(since.getDate() - 7);
+  } else {
+    since.setDate(since.getDate() - 30);
+  }
+  return since;
+}
 
-  const multiplier = multipliers[frequency] ?? 1;
-  const scaled = (value: number) => Math.max(1, Math.round(value * multiplier));
-  const categories = [
-    { category: "Bills & Utilities", amount: scaled(2800), percentage: 48 },
-    { category: "Food", amount: scaled(280), percentage: 28 },
-    { category: "Shopping", amount: scaled(200), percentage: 15 },
-    { category: "Transport", amount: scaled(120), percentage: 9 },
-  ];
+function getFrequencyLabel(frequency: Frequency) {
+  if (frequency === "daily") return "day";
+  if (frequency === "weekly") return "week";
+  return "month";
+}
 
-  const savingsOpportunity =
-    frequency === "daily" ? 18 : frequency === "weekly" ? 95 : 410;
+function buildFallbackInsights(frequency: Frequency, bootstrap: Awaited<ReturnType<typeof buildBootstrap>>) {
+  const since = getWindowStart(frequency);
+  const relevantLogs = bootstrap.spending_logs.filter(
+    (log) => new Date(log.date) >= since,
+  );
+  const categoryMap: Record<string, number> = {};
+
+  for (const log of relevantLogs) {
+    for (const item of Array.isArray(log.items) ? log.items : []) {
+      categoryMap[item.category] = (categoryMap[item.category] || 0) + Number(item.amount || 0);
+    }
+  }
+
+  const topCategories = Object.entries(categoryMap)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount)
+    .slice(0, 4);
+  const totalSpend = topCategories.reduce((sum, item) => sum + item.amount, 0);
+  const savingsOpportunity = Math.round(totalSpend * 0.1);
 
   return {
     frequency,
-    insights: [
-      {
-        title: "Essentials dominate your plan",
-        description: `${frequency[0].toUpperCase() + frequency.slice(1)} spending is still led by bills and utilities, which keeps most of your budget in predictable categories.`,
-        type: "positive",
-        amount: categories[0].amount,
-      },
-      {
-        title: "Shopping is the easiest trim",
-        description: "Variable purchases remain the cleanest place to create breathing room without disrupting core needs.",
-        type: "warning",
-        amount: frequency === "daily" ? 7 : frequency === "weekly" ? 47 : 200,
-      },
-      {
-        title: "Transport is stable",
-        description: "Transport costs are relatively controlled, which gives you room to focus on discretionary categories instead.",
-        type: "tip",
-        amount: categories[3].amount,
-      },
-      {
-        title: "Savings pace is healthy",
-        description: "You are still tracking near a 30% savings rate, which is strong for this spending profile.",
-        type: "positive",
-        amount: frequency === "daily" ? 83 : frequency === "weekly" ? 581 : 2490,
-      },
-    ],
-    top_spending_categories: categories,
-    summary: `Your ${frequency} spending pattern is stable, with essentials taking the biggest share and shopping offering the clearest short-term savings opportunity. If you keep discretionary purchases controlled, you preserve a strong savings rate without changing fixed commitments.`,
+    insights: topCategories.map((item, index) => ({
+      title:
+        index === 0
+          ? `${item.category} is leading your ${frequency} spending`
+          : `${item.category} is still drawing budget attention`,
+      description:
+        index === 0
+          ? `${item.category} accounts for the biggest share of your recent spending. If it is optional, trimming even a small portion of it would create faster breathing room.`
+          : `Review this category before the next ${getFrequencyLabel(frequency)} closes so it does not quietly become a habit.`,
+      type: index === 0 ? "warning" : index === 1 ? "tip" : "positive",
+      amount: item.amount,
+    })),
+    top_spending_categories: topCategories.map((item) => ({
+      category: item.category,
+      amount: item.amount,
+      percentage: totalSpend > 0 ? Math.round((item.amount / totalSpend) * 100) : 0,
+    })),
+    summary:
+      topCategories.length > 0
+        ? `Your recent ${frequency} pattern is based on ${relevantLogs.length} real spending log${relevantLogs.length === 1 ? "" : "s"}. ${topCategories[0].category} is the main pressure point right now, and your best near-term win is to keep that category controlled.`
+        : `You have not logged enough spending during this ${frequency} window yet for meaningful insights.`,
     savings_opportunity: savingsOpportunity,
   };
 }
@@ -65,25 +78,58 @@ serve(async (req) => {
   }
 
   try {
-    const { frequency = "monthly" } = await req.json().catch(() => ({}));
-    const fallbackInsights = buildFallbackInsights(frequency);
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
+    const { frequency = "monthly", public_user_id: rawPublicUserId } = await req
+      .json()
+      .catch(() => ({}));
+    const publicUserId = getPublicUserId(rawPublicUserId);
+    const safeFrequency = (["daily", "weekly", "monthly"].includes(frequency)
+      ? frequency
+      : "monthly") as Frequency;
+    const bootstrap = await buildBootstrap(publicUserId);
+
+    if (bootstrap.spending_logs.length === 0) {
+      return new Response(
+        JSON.stringify({
+          error: "Log some spending first so eva can generate real insights.",
+        }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const fallbackInsights = buildFallbackInsights(safeFrequency, bootstrap);
+    const LOVABLE_API_KEY =
+      Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
+
     if (!LOVABLE_API_KEY) {
       return new Response(JSON.stringify(fallbackInsights), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const systemPrompt = `You are eva, a spending insights generator. Based on the user's financial profile, generate ${frequency} spending insights.
+    const systemPrompt = `You are eva, a spending insights generator. Use only the user's real stored finance data.
 
-User's Financial Data:
-- Monthly Salary Income: ~$7,700
-- Freelance Income: ~$600/month
-- Monthly Expenses: Food ($280), Transport ($120), Entertainment ($60), Shopping ($200), Bills & Utilities ($2,800), Health ($80), Education ($35)
-- Total Monthly Expenses: ~$5,800
-- Savings Rate: ~30%
+User profile:
+- Monthly income: ${bootstrap.dashboard_summary.monthly_income}
+- Monthly fixed expenses: ${bootstrap.dashboard_summary.monthly_fixed_expenses}
+- Monthly subscriptions: ${bootstrap.dashboard_summary.monthly_subscription_total}
+- Cash balance: ${bootstrap.dashboard_summary.cash_balance}
+- Net worth: ${bootstrap.dashboard_summary.net_worth}
 
-Generate insightful, actionable ${frequency} spending analysis with specific recommendations.`;
+Recent spending logs:
+${bootstrap.spending_logs
+  .slice(0, 40)
+  .map((log) => `${log.date}: ${JSON.stringify(log.items)} (total ${log.total})`)
+  .join("\n")}
+
+Budget limits:
+${bootstrap.budget_limits
+  .map((budget) => `${budget.category}: ${budget.monthly_limit}`)
+  .join("\n") || "None"}
+
+Generate ${safeFrequency} insights grounded only in this data. Do not invent categories, balances, or transactions.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -95,7 +141,10 @@ Generate insightful, actionable ${frequency} spending analysis with specific rec
         model: "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Generate my ${frequency} spending insights with categories, tips, and savings opportunities.` },
+          {
+            role: "user",
+            content: `Generate my ${safeFrequency} spending insights with categories, savings opportunities, and an action-oriented summary.`,
+          },
         ],
         tools: [
           {
@@ -114,7 +163,10 @@ Generate insightful, actionable ${frequency} spending analysis with specific rec
                       properties: {
                         title: { type: "string" },
                         description: { type: "string" },
-                        type: { type: "string", enum: ["positive", "negative", "warning", "tip"] },
+                        type: {
+                          type: "string",
+                          enum: ["positive", "negative", "warning", "tip"],
+                        },
                         amount: { type: "number" },
                       },
                       required: ["title", "description", "type"],
@@ -137,7 +189,13 @@ Generate insightful, actionable ${frequency} spending analysis with specific rec
                   summary: { type: "string" },
                   savings_opportunity: { type: "number" },
                 },
-                required: ["frequency", "insights", "top_spending_categories", "summary", "savings_opportunity"],
+                required: [
+                  "frequency",
+                  "insights",
+                  "top_spending_categories",
+                  "summary",
+                  "savings_opportunity",
+                ],
                 additionalProperties: false,
               },
             },
@@ -166,11 +224,16 @@ Generate insightful, actionable ${frequency} spending analysis with specific rec
     return new Response(JSON.stringify(insights), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
-  } catch (e) {
-    console.error("generate-insights error:", e);
-    const fallbackInsights = buildFallbackInsights("monthly");
-    return new Response(JSON.stringify(fallbackInsights), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+  } catch (error) {
+    console.error("generate-insights error:", error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "Unknown error",
+      }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 });

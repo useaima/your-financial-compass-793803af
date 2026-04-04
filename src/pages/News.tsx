@@ -22,14 +22,14 @@ const sentimentConfig = {
 };
 
 const categoryColors: Record<string, string> = {
-  Markets: "bg-blue-500/10 text-blue-600 dark:text-blue-400",
-  Economy: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
-  Crypto: "bg-purple-500/10 text-purple-600 dark:text-purple-400",
-  "Personal Finance": "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400",
-  Tech: "bg-cyan-500/10 text-cyan-600 dark:text-cyan-400",
-  Commodities: "bg-orange-500/10 text-orange-600 dark:text-orange-400",
-  "Real Estate": "bg-rose-500/10 text-rose-600 dark:text-rose-400",
-  Policy: "bg-slate-500/10 text-slate-600 dark:text-slate-400",
+  Markets: "bg-primary/10 text-primary",
+  Economy: "bg-[hsl(var(--chart-5)/0.16)] text-[hsl(var(--chart-4))]",
+  Crypto: "bg-[hsl(var(--chart-3)/0.10)] text-[hsl(var(--chart-3))]",
+  "Personal Finance": "bg-[hsl(var(--chart-2)/0.10)] text-[hsl(var(--chart-2))]",
+  Tech: "bg-secondary text-foreground",
+  Commodities: "bg-[hsl(var(--primary)/0.10)] text-primary",
+  "Real Estate": "bg-[hsl(var(--foreground)/0.08)] text-foreground",
+  Policy: "bg-secondary text-muted-foreground",
 };
 
 export default function News() {

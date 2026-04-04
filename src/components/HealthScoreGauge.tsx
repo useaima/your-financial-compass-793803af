@@ -18,9 +18,9 @@ export default function HealthScoreGauge({ score }: Props) {
   }, [score]);
 
   const getColor = (s: number) => {
-    if (s >= 80) return "hsl(151 58% 36%)";
-    if (s >= 60) return "hsl(33 72% 52%)";
-    return "hsl(11 59% 54%)";
+    if (s >= 80) return "hsl(var(--chart-2))";
+    if (s >= 60) return "hsl(var(--primary))";
+    return "hsl(var(--chart-3))";
   };
 
   const getLabel = (s: number) => {

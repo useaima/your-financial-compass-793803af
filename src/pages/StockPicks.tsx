@@ -21,13 +21,13 @@ interface StockRec {
 
 const riskColors: Record<string, string> = {
   Low: "text-primary bg-primary/10",
-  Medium: "text-yellow-600 bg-yellow-500/10",
+  Medium: "text-[hsl(var(--chart-4))] bg-[hsl(var(--chart-5)/0.16)]",
   High: "text-destructive bg-destructive/10",
 };
 
 const recColors: Record<string, string> = {
   "Strong Buy": "text-primary bg-primary/10 border-primary/20",
-  Buy: "text-blue-600 bg-blue-500/10 border-blue-500/20",
+  Buy: "text-[hsl(var(--chart-2))] bg-[hsl(var(--chart-2)/0.10)] border-[hsl(var(--chart-2)/0.18)]",
   Hold: "text-muted-foreground bg-secondary border-border",
 };
 
@@ -81,8 +81,8 @@ export default function StockPicks() {
       </motion.div>
 
       {/* Disclaimer */}
-      <div className="rounded-lg border border-yellow-500/20 bg-yellow-500/5 p-3 flex items-start gap-2">
-        <AlertTriangle className="w-4 h-4 text-yellow-600 mt-0.5 shrink-0" />
+      <div className="rounded-lg border border-[hsl(var(--chart-5)/0.26)] bg-[hsl(var(--chart-5)/0.10)] p-3 flex items-start gap-2">
+        <AlertTriangle className="w-4 h-4 text-[hsl(var(--chart-4))] mt-0.5 shrink-0" />
         <p className="text-xs text-muted-foreground">
           <strong className="text-foreground">Disclaimer:</strong> AI-generated recommendations based on publicly available research from Motley Fool, Wall Street analysts, and market data. Not financial advice. Always do your own research.
         </p>

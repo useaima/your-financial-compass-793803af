@@ -1,38 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
+import {
+  Bell,
+  Building2,
+  CreditCard,
+  HelpCircle,
+  Loader2,
+  MessageCircle,
+  Save,
+  Shield,
+  User,
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import { usePublicUser } from "@/context/PublicUserContext";
+import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { cn } from "@/lib/utils";
+import {
+  BUDGETING_FOCUS_OPTIONS,
+  COUNTRIES,
+  USER_TYPES,
+} from "@/lib/finance";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { toast } from "sonner";
-import { motion } from "framer-motion";
-import {
-  User, Building2, Save, Loader2, Bell, Download, Palette, HelpCircle,
-  MessageCircle, CreditCard, Shield, Moon, Sun, Monitor,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
-import { useNavigate } from "react-router-dom";
-import { getPrototypeProfile, savePrototypeProfile } from "@/lib/prototypeProfile";
-import { useTheme } from "next-themes";
+import { Switch } from "@/components/ui/switch";
 
-const COUNTRIES = [
-  "United States", "United Kingdom", "Canada", "Australia", "Germany", "France",
-  "India", "Brazil", "Japan", "South Korea", "Nigeria", "South Africa",
-  "Kenya", "Ghana", "Mexico", "Singapore", "Netherlands", "Sweden",
-  "Switzerland", "Spain", "Italy", "Portugal", "Ireland", "New Zealand",
-  "Argentina", "Colombia", "Chile", "UAE", "Saudi Arabia", "Egypt",
-];
-
-type SettingsTab = "profile" | "notifications" | "appearance" | "billing" | "help" | "feedback";
+type SettingsTab = "profile" | "notifications" | "billing" | "help" | "feedback";
 
 export default function Settings() {
   const navigate = useNavigate();
-  const { theme, setTheme } = useTheme();
+  const { bootstrap, updateProfile, saving } = usePublicUser();
   const { isSupported, permission, requestPermission } = usePushNotifications();
-  const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState(() => getPrototypeProfile());
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
+  const [feedbackMsg, setFeedbackMsg] = useState("");
+  const [feedbackSent, setFeedbackSent] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState({
     pushEnabled: permission === "granted",
     stockAlerts: true,
@@ -41,148 +44,289 @@ export default function Settings() {
     dailySummary: false,
     newsDigest: true,
   });
-  const [feedbackMsg, setFeedbackMsg] = useState("");
-  const [feedbackSent, setFeedbackSent] = useState(false);
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    country: "United States",
+    user_type: "personal" as "personal" | "business",
+    updates_opt_in: true,
+    cash_balance: "",
+    monthly_income: "",
+    monthly_fixed_expenses: "",
+    budgeting_focus: BUDGETING_FOCUS_OPTIONS[0],
+  });
+
+  useEffect(() => {
+    if (!bootstrap.profile) return;
+    setForm({
+      first_name: bootstrap.profile.first_name,
+      last_name: bootstrap.profile.last_name,
+      country: bootstrap.profile.country || "United States",
+      user_type:
+        bootstrap.profile.user_type === "business" ? "business" : "personal",
+      updates_opt_in: bootstrap.profile.updates_opt_in,
+      cash_balance: String(bootstrap.profile.cash_balance ?? 0),
+      monthly_income: String(bootstrap.profile.monthly_income ?? 0),
+      monthly_fixed_expenses: String(bootstrap.profile.monthly_fixed_expenses ?? 0),
+      budgeting_focus:
+        bootstrap.profile.budgeting_focus || BUDGETING_FOCUS_OPTIONS[0],
+    });
+  }, [bootstrap.profile]);
 
   const handleSave = async () => {
-    setSaving(true);
-    savePrototypeProfile(form);
-    setSaving(false);
-    toast.success("Settings saved");
+    try {
+      await updateProfile({
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim(),
+        country: form.country,
+        user_type: form.user_type,
+        updates_opt_in: form.updates_opt_in,
+        cash_balance: Number(form.cash_balance || 0),
+        monthly_income: Number(form.monthly_income || 0),
+        monthly_fixed_expenses: Number(form.monthly_fixed_expenses || 0),
+        budgeting_focus: form.budgeting_focus,
+      });
+      toast.success("Settings saved");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to save settings right now.",
+      );
+    }
   };
 
   const tabs: { id: SettingsTab; label: string; icon: typeof User }[] = [
     { id: "profile", label: "Profile", icon: User },
     { id: "notifications", label: "Notifications", icon: Bell },
-    { id: "appearance", label: "Appearance", icon: Palette },
     { id: "billing", label: "Billing", icon: CreditCard },
     { id: "help", label: "Help & Support", icon: HelpCircle },
     { id: "feedback", label: "Feedback", icon: MessageCircle },
   ];
 
-  const themeOptions = [
-    { value: "light", label: "Light", icon: Sun },
-    { value: "dark", label: "Dark", icon: Moon },
-    { value: "system", label: "System", icon: Monitor },
-  ];
-
   return (
-    <div className="p-4 md:p-8 max-w-[800px] mx-auto space-y-6 pb-24 md:pb-8">
+    <div className="mx-auto max-w-[860px] space-y-6 p-4 pb-24 md:p-8 md:pb-8">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold tracking-tight">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">Manage your preferences and account</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Manage your onboarding profile, notifications, and support preferences.
+        </p>
       </motion.div>
 
-      {/* Tabs */}
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex gap-1 flex-wrap border-b border-border pb-2">
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        className="flex flex-wrap gap-1 border-b border-border pb-2"
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
+            type="button"
             onClick={() => setActiveTab(tab.id)}
             className={cn(
-              "flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+              "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
               activeTab === tab.id
                 ? "bg-primary text-primary-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+                : "text-muted-foreground hover:bg-secondary hover:text-foreground",
             )}
           >
-            <tab.icon className="w-4 h-4" />
+            <tab.icon className="h-4 w-4" />
             <span className="hidden sm:inline">{tab.label}</span>
           </button>
         ))}
       </motion.div>
 
-      {/* Profile Tab */}
       {activeTab === "profile" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-6 space-y-5"
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-5 rounded-xl border border-border bg-card p-6"
         >
-          <div className="flex items-center gap-3 pb-4 border-b border-border">
-            <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center">
-              <User className="w-5 h-5 text-primary" />
+          <div className="flex items-center gap-3 border-b border-border pb-4">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/15">
+              <User className="h-5 w-5 text-primary" />
             </div>
             <div>
               <p className="text-sm font-medium text-foreground">Profile Settings</p>
-              <p className="text-xs text-muted-foreground">Your profile is stored locally on this device</p>
+              <p className="text-xs text-muted-foreground">
+                This information powers onboarding-backed summaries and planning.
+              </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label className="text-xs">First name</Label>
-              <Input value={form.firstName} onChange={(e) => setForm((p) => ({ ...p, firstName: e.target.value }))} />
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label>First name</Label>
+              <Input
+                value={form.first_name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, first_name: event.target.value }))
+                }
+              />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Last name</Label>
-              <Input value={form.lastName} onChange={(e) => setForm((p) => ({ ...p, lastName: e.target.value }))} />
+            <div className="space-y-2">
+              <Label>Last name</Label>
+              <Input
+                value={form.last_name}
+                onChange={(event) =>
+                  setForm((current) => ({ ...current, last_name: event.target.value }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Country</Label>
+              <Select
+                value={form.country}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, country: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {COUNTRIES.map((country) => (
+                    <SelectItem key={country} value={country}>
+                      {country}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>User type</Label>
+              <div className="grid grid-cols-2 gap-3">
+                {USER_TYPES.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() =>
+                      setForm((current) => ({
+                        ...current,
+                        user_type: option.value,
+                      }))
+                    }
+                    className={cn(
+                      "rounded-lg border px-4 py-3 text-sm font-medium transition-colors",
+                      form.user_type === option.value
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:border-primary/30",
+                    )}
+                  >
+                    {option.value === "business" ? (
+                      <span className="inline-flex items-center gap-2">
+                        <Building2 className="h-4 w-4" />
+                        {option.label}
+                      </span>
+                    ) : (
+                      option.label
+                    )}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Cash balance</Label>
+              <Input
+                type="number"
+                value={form.cash_balance}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    cash_balance: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Monthly income</Label>
+              <Input
+                type="number"
+                value={form.monthly_income}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    monthly_income: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Monthly fixed expenses</Label>
+              <Input
+                type="number"
+                value={form.monthly_fixed_expenses}
+                onChange={(event) =>
+                  setForm((current) => ({
+                    ...current,
+                    monthly_fixed_expenses: event.target.value,
+                  }))
+                }
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Budgeting focus</Label>
+              <Select
+                value={form.budgeting_focus}
+                onValueChange={(value) =>
+                  setForm((current) => ({ ...current, budgeting_focus: value }))
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUDGETING_FOCUS_OPTIONS.map((focus) => (
+                    <SelectItem key={focus} value={focus}>
+                      {focus}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">Country</Label>
-            <Select value={form.country} onValueChange={(v) => setForm((p) => ({ ...p, country: v }))}>
-              <SelectTrigger><SelectValue placeholder="Select country" /></SelectTrigger>
-              <SelectContent>
-                {COUNTRIES.map((c) => (<SelectItem key={c} value={c}>{c}</SelectItem>))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-xs">Account type</Label>
-            <div className="grid grid-cols-2 gap-3">
-              {[
-                { type: "personal", icon: User, label: "Personal" },
-                { type: "enterprise", icon: Building2, label: "Enterprise" },
-              ].map((opt) => (
-                <button
-                  key={opt.type}
-                  type="button"
-                  onClick={() => setForm((p) => ({ ...p, userType: opt.type as "personal" | "enterprise" }))}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-3 rounded-lg border transition-colors",
-                    form.userType === opt.type
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/30"
-                  )}
-                >
-                  <opt.icon className="w-4 h-4" />
-                  <span className="text-xs font-medium">{opt.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="flex items-center justify-between pt-2">
+          <div className="flex items-center justify-between rounded-xl border border-border bg-background px-4 py-3">
             <div>
-              <p className="text-sm font-medium text-foreground">Email updates</p>
-              <p className="text-xs text-muted-foreground">Receive tips and product news</p>
+              <p className="text-sm font-medium text-foreground">Product updates</p>
+              <p className="text-xs text-muted-foreground">
+                Receive occasional product news and helpful release notes.
+              </p>
             </div>
-            <Switch checked={form.updatesOptIn} onCheckedChange={(v) => setForm((p) => ({ ...p, updatesOptIn: v }))} />
+            <Switch
+              checked={form.updates_opt_in}
+              onCheckedChange={(value) =>
+                setForm((current) => ({ ...current, updates_opt_in: value }))
+              }
+            />
           </div>
 
           <Button className="w-full gap-2" onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
             {saving ? "Saving..." : "Save changes"}
           </Button>
         </motion.div>
       )}
 
-      {/* Notifications Tab */}
       {activeTab === "notifications" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-6 space-y-5"
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-5 rounded-xl border border-border bg-card p-6"
         >
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Bell className="w-4 h-4" /> Notification Preferences
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <Bell className="h-4 w-4" />
+            Notification Preferences
           </h2>
 
           {isSupported && (
-            <div className="flex items-center justify-between py-2 border-b border-border">
+            <div className="flex items-center justify-between border-b border-border py-2">
               <div>
-                <p className="text-sm font-medium text-foreground">Push Notifications</p>
+                <p className="text-sm font-medium text-foreground">Push notifications</p>
                 <p className="text-xs text-muted-foreground">
-                  {permission === "granted" ? "Enabled" : permission === "denied" ? "Blocked by browser" : "Enable browser push notifications"}
+                  {permission === "granted"
+                    ? "Enabled in this browser"
+                    : permission === "denied"
+                      ? "Blocked by the browser"
+                      : "Enable browser push notifications"}
                 </p>
               </div>
               <Switch
@@ -194,11 +338,31 @@ export default function Settings() {
           )}
 
           {[
-            { key: "stockAlerts", title: "Stock Alerts", desc: "Get notified about stock recommendations and price targets" },
-            { key: "budgetWarnings", title: "Budget Warnings", desc: "Alerts when approaching or exceeding budget limits" },
-            { key: "weeklyReports", title: "Weekly Reports", desc: "Receive weekly spending summaries and insights" },
-            { key: "dailySummary", title: "Daily Summary", desc: "End-of-day spending summary" },
-            { key: "newsDigest", title: "News Digest", desc: "Daily digest of trending finance news" },
+            {
+              key: "stockAlerts",
+              title: "Stock alerts",
+              desc: "Get notified about new stock recommendations and price targets.",
+            },
+            {
+              key: "budgetWarnings",
+              title: "Budget warnings",
+              desc: "Alerts when you approach or exceed a budget limit.",
+            },
+            {
+              key: "weeklyReports",
+              title: "Weekly reports",
+              desc: "Receive weekly spending summaries and insight rollups.",
+            },
+            {
+              key: "dailySummary",
+              title: "Daily summary",
+              desc: "A quick end-of-day spending recap.",
+            },
+            {
+              key: "newsDigest",
+              title: "News digest",
+              desc: "A daily roundup of the finance stories that matter most.",
+            },
           ].map((item) => (
             <div key={item.key} className="flex items-center justify-between py-2">
               <div>
@@ -207,167 +371,147 @@ export default function Settings() {
               </div>
               <Switch
                 checked={notifPrefs[item.key as keyof typeof notifPrefs] as boolean}
-                onCheckedChange={(v) => setNotifPrefs((p) => ({ ...p, [item.key]: v }))}
+                onCheckedChange={(value) =>
+                  setNotifPrefs((current) => ({ ...current, [item.key]: value }))
+                }
               />
             </div>
           ))}
 
-          <Button className="w-full gap-2" onClick={() => {
-            localStorage.setItem("financeai_notif_prefs", JSON.stringify(notifPrefs));
-            toast.success("Notification preferences saved");
-          }}>
-            <Save className="w-4 h-4" /> Save Preferences
+          <Button
+            className="w-full gap-2"
+            onClick={() => {
+              window.localStorage.setItem("eva_notification_preferences", JSON.stringify(notifPrefs));
+              toast.success("Notification preferences saved");
+            }}
+          >
+            <Save className="h-4 w-4" />
+            Save preferences
           </Button>
         </motion.div>
       )}
 
-      {/* Appearance Tab */}
-      {activeTab === "appearance" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-6 space-y-5"
-        >
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <Palette className="w-4 h-4" /> Appearance
-          </h2>
-
-          <div className="space-y-3">
-            <Label className="text-xs">Theme</Label>
-            <div className="grid grid-cols-3 gap-3">
-              {themeOptions.map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => setTheme(opt.value)}
-                  className={cn(
-                    "flex flex-col items-center gap-2 p-4 rounded-lg border transition-colors",
-                    theme === opt.value
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border text-muted-foreground hover:border-primary/30"
-                  )}
-                >
-                  <opt.icon className="w-5 h-5" />
-                  <span className="text-xs font-medium">{opt.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </motion.div>
-      )}
-
-      {/* Billing Tab */}
       {activeTab === "billing" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-6 space-y-5"
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-5 rounded-xl border border-border bg-card p-6"
         >
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <CreditCard className="w-4 h-4" /> Billing & Plan
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <CreditCard className="h-4 w-4" />
+            Billing and plan
           </h2>
 
           <div className="rounded-xl border border-primary/20 bg-primary/5 p-5">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-semibold text-foreground">Free Plan</p>
-                <p className="text-xs text-muted-foreground mt-1">All core features included</p>
+                <p className="text-sm font-semibold text-foreground">Free plan</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Your current workspace includes all core features.
+                </p>
               </div>
-              <span className="text-xs font-bold text-primary bg-primary/10 px-3 py-1 rounded-full">Active</span>
+              <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-bold text-primary">
+                Active
+              </span>
             </div>
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Plan Features</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Included
+            </h3>
             {[
-              "AI Financial Advisor",
-              "Spending tracking & insights",
-              "Budget limits & alerts",
-              "Financial statement generation",
+              "AI financial advisor",
+              "Real spending tracking",
+              "Budget limits and alerts",
+              "Financial statements",
               "Stock recommendations",
               "Finance news feed",
             ].map((feature) => (
               <div key={feature} className="flex items-center gap-2">
-                <Shield className="w-3.5 h-3.5 text-primary" />
+                <Shield className="h-3.5 w-3.5 text-primary" />
                 <span className="text-sm text-foreground">{feature}</span>
               </div>
             ))}
           </div>
 
           <div className="rounded-lg border border-border bg-secondary/30 p-4">
-            <p className="text-sm font-medium text-foreground">Premium Plan</p>
-            <p className="text-xs text-muted-foreground mt-1">Advanced analytics, unlimited AI queries, and priority support.</p>
+            <p className="text-sm font-medium text-foreground">Premium plan</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Advanced analytics, team management, and higher AI usage are planned for the
+              SaaS release.
+            </p>
             <Button variant="outline" className="mt-3 w-full" disabled>
-              Coming Soon
+              Coming soon
             </Button>
           </div>
         </motion.div>
       )}
 
-      {/* Help Tab */}
       {activeTab === "help" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} className="space-y-4">
-          {[
-            { icon: MessageCircle, title: "Chat with AI Advisor", desc: "Ask your AI advisor any financial question in the chat tab.", action: () => navigate("/chat") },
-            { icon: HelpCircle, title: "FAQs", desc: "Common questions about spending analysis, goals, and budgets.", action: () => navigate("/help") },
-            { icon: Shield, title: "Privacy & Security", desc: "Learn about how we protect your data.", action: () => navigate("/privacy") },
-          ].map((item) => (
-            <button
-              key={item.title}
-              onClick={item.action}
-              className="w-full bg-card border border-border rounded-xl p-5 flex items-start gap-4 hover:border-primary/20 transition-colors text-left"
-            >
-              <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
-                <item.icon className="w-5 h-5 text-primary" />
-              </div>
-              <div>
-                <h3 className="font-medium text-foreground">{item.title}</h3>
-                <p className="text-sm text-muted-foreground mt-1">{item.desc}</p>
-              </div>
-            </button>
-          ))}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-5 rounded-xl border border-border bg-card p-6"
+        >
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <HelpCircle className="h-4 w-4" />
+            Help and support
+          </h2>
+          <div className="space-y-3">
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/help")}>
+              Open help center
+            </Button>
+            <Button variant="outline" className="w-full justify-start" onClick={() => navigate("/feedback")}>
+              Share product feedback
+            </Button>
+          </div>
         </motion.div>
       )}
 
-      {/* Feedback Tab */}
       {activeTab === "feedback" && (
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
-          className="bg-card border border-border rounded-xl p-6 space-y-4"
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-5 rounded-xl border border-border bg-card p-6"
         >
-          <h2 className="text-sm font-semibold text-foreground flex items-center gap-2">
-            <MessageCircle className="w-4 h-4" /> Send Feedback
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+            <MessageCircle className="h-4 w-4" />
+            Feedback
           </h2>
 
-          {feedbackSent ? (
-            <div className="text-center py-8 space-y-2">
-              <p className="text-lg font-semibold text-foreground">Thanks for your feedback! 🎉</p>
-              <p className="text-sm text-muted-foreground">We read every message.</p>
-              <Button variant="outline" className="mt-4" onClick={() => { setFeedbackSent(false); setFeedbackMsg(""); }}>
-                Send another
-              </Button>
-            </div>
-          ) : (
-            <>
-              <textarea
-                value={feedbackMsg}
-                onChange={(e) => setFeedbackMsg(e.target.value)}
-                placeholder="What would you like us to improve?"
-                rows={5}
-                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/30"
-              />
-              <Button
-                className="w-full gap-2"
-                onClick={() => { setFeedbackSent(true); toast.success("Feedback submitted!"); }}
-                disabled={!feedbackMsg.trim()}
-              >
-                <MessageCircle className="w-4 h-4" /> Submit Feedback
-              </Button>
-            </>
+          <textarea
+            value={feedbackMsg}
+            onChange={(event) => {
+              setFeedbackMsg(event.target.value);
+              if (feedbackSent) setFeedbackSent(false);
+            }}
+            placeholder="Tell us what is working, what feels confusing, or what you want next."
+            className="min-h-[140px] w-full rounded-xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition focus:ring-1 focus:ring-primary/40"
+          />
+
+          <Button
+            className="w-full"
+            onClick={() => {
+              if (!feedbackMsg.trim()) {
+                toast.error("Write a short note before sending feedback.");
+                return;
+              }
+              setFeedbackSent(true);
+              setFeedbackMsg("");
+              toast.success("Feedback sent");
+            }}
+          >
+            Send feedback
+          </Button>
+
+          {feedbackSent && (
+            <p className="text-sm text-muted-foreground">
+              Thanks. Your feedback helps shape the next phase of eva.
+            </p>
           )}
         </motion.div>
       )}
-
-      {/* Install App */}
-      <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
-        <Button variant="outline" className="w-full gap-2" onClick={() => navigate("/install")}>
-          <Download className="w-4 h-4" /> Install App
-        </Button>
-      </motion.div>
     </div>
   );
 }

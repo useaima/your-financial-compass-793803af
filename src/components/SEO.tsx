@@ -14,9 +14,9 @@ export interface SEOProps {
   };
 }
 
-const DEFAULT_TITLE = 'eva — AI-Powered Financial Advisor | Understand · Plan · Grow';
-const DEFAULT_DESCRIPTION = 'eva is an AI-powered financial advisor that analyzes your spending, predicts future balances, and provides personalized money advice. Free to start.';
-const DEFAULT_OG_IMAGE = 'https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/deeeb9c0-e0e7-4edd-832e-53d3707dae6e/id-preview-5ca1457d--52f18138-cd68-4bcc-9c09-692af4d6193d.lovable.app-1774486361105.png';
+const DEFAULT_TITLE = 'eva — Your AI Finance Assistant';
+const DEFAULT_DESCRIPTION = 'eva is your AI finance assistant for spending clarity, planning confidence, and calmer cashflow decisions.';
+const DEFAULT_OG_IMAGE = 'https://financeai.useaima.com/eva-og.png';
 const BASE_URL = 'https://financeai.useaima.com';
 
 export default function SEO({
@@ -156,7 +156,7 @@ export function generateOrganizationSchema() {
     "name": "eva",
     "url": "https://financeai.useaima.com/",
     "logo": "https://financeai.useaima.com/eva-logo.png",
-    "description": "AI-powered financial intelligence platform — Understand · Plan · Grow",
+    "description": "Your AI Finance Assistant for spending clarity, planning confidence, and cashflow guidance.",
     "sameAs": [
       "https://twitter.com/eva_finance",
       "https://linkedin.com/company/eva-finance"
