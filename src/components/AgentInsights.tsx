@@ -88,7 +88,7 @@ export default function AgentInsights() {
         .limit(5);
 
       if (error) throw error;
-      setNotifications(data || []);
+      setNotifications((data || []) as Notification[]);
     } catch (err) {
       console.error("Error fetching notifications:", err);
     } finally {
