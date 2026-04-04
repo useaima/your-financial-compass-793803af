@@ -16,6 +16,8 @@ const quickActions = [
   { label: "My score", prompt: "What's my financial score and how can I improve it?", icon: TrendingUp },
 ];
 
+const CHAT_STARTER_STORAGE_KEY = "eva-chat-starter";
+
 interface SpendingBubble {
   items: { category: string; amount: number; description: string }[];
   total: number;
@@ -101,8 +103,26 @@ export default function Chat() {
   }, [addEntry, isLoading, messages, refresh]);
 
   useEffect(() => {
-    const starterPrompt = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.starterPrompt;
-    const autoStart = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.autoStart;
+    const routeState = location.state as { starterPrompt?: string; autoStart?: boolean } | null;
+    let starterPrompt = routeState?.starterPrompt;
+    let autoStart = routeState?.autoStart;
+
+    if ((!starterPrompt || autoStart === undefined) && typeof window !== "undefined") {
+      const storedStarter = window.sessionStorage.getItem(CHAT_STARTER_STORAGE_KEY);
+
+      if (storedStarter) {
+        try {
+          const parsed = JSON.parse(storedStarter) as {
+            starterPrompt?: string;
+            autoStart?: boolean;
+          };
+          starterPrompt = parsed.starterPrompt ?? starterPrompt;
+          autoStart = parsed.autoStart ?? autoStart;
+        } catch {
+          window.sessionStorage.removeItem(CHAT_STARTER_STORAGE_KEY);
+        }
+      }
+    }
 
     if (!starterPrompt || hasAutostarted.current) {
       return;
@@ -114,6 +134,10 @@ export default function Chat() {
       void send(starterPrompt);
     } else {
       setInput(starterPrompt);
+    }
+
+    if (typeof window !== "undefined") {
+      window.sessionStorage.removeItem(CHAT_STARTER_STORAGE_KEY);
     }
 
     navigate(location.pathname, { replace: true, state: {} });

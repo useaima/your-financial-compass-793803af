@@ -204,6 +204,8 @@ const subscriptionAwarenessOptions: Array<{
   { value: "no", title: "No" },
 ];
 
+const CHAT_STARTER_STORAGE_KEY = "eva-chat-starter";
+
 function addMonths(date: Date, months: number) {
   const next = new Date(date);
   next.setMonth(next.getMonth() + months);
@@ -488,6 +490,16 @@ export default function Onboarding() {
       toast.success("Your workspace is ready.");
 
       if (route === "chat" && autoStartPrompt) {
+        if (typeof window !== "undefined") {
+          window.sessionStorage.setItem(
+            CHAT_STARTER_STORAGE_KEY,
+            JSON.stringify({
+              starterPrompt: autoStartPrompt,
+              autoStart: true,
+            }),
+          );
+        }
+
         navigate("/chat", {
           replace: true,
           state: {
