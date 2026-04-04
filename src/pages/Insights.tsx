@@ -1,7 +1,8 @@
+import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Loader2, RefreshCw, TrendingUp, TrendingDown, AlertTriangle, Lightbulb } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -59,11 +60,10 @@ export default function Insights() {
 
     setLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke("generate-insights", {
-        body: { frequency, public_user_id: publicUserId },
+      const result = await invokeEdgeFunction<InsightsData>("generate-insights", {
+        frequency,
+        public_user_id: publicUserId,
       });
-      if (error) throw error;
-      if (result?.error) throw new Error(result.error);
       setData(result);
     } catch (e: any) {
       toast.error(e.message || "Failed to generate insights");

@@ -1,3 +1,4 @@
+import { ensureOnline, getDisplayErrorMessage, handleAppError } from "@/lib/appErrors";
 import { getOrCreatePublicUserId } from "@/lib/publicUser";
 
 export type Msg = { role: "user" | "assistant"; content: string };
@@ -33,14 +34,31 @@ export async function streamChat({
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const resp = await fetch(CHAT_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({
-      messages,
-      public_user_id: getOrCreatePublicUserId(),
-    }),
-  });
+  try {
+    ensureOnline();
+  } catch (error) {
+    onError(getDisplayErrorMessage(error));
+    return;
+  }
+
+  let resp: Response;
+  try {
+    resp = await fetch(CHAT_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        messages,
+        public_user_id: getOrCreatePublicUserId(),
+      }),
+    });
+  } catch (error) {
+    const { message } = handleAppError(
+      error,
+      "We could not reach eva. Please try again.",
+    );
+    onError(message);
+    return;
+  }
 
   if (!resp.ok) {
     if (resp.status === 429) { onError("Rate limit reached. Please wait a moment."); return; }

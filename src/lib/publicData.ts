@@ -1,4 +1,5 @@
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/edgeFunctions";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
 import { EMPTY_DASHBOARD_SUMMARY } from "@/lib/finance";
 import { getOrCreatePublicUserId } from "@/lib/publicUser";
 
@@ -209,23 +210,11 @@ async function invokePublicData<T>(action: string, payload: Record<string, unkno
     throw new Error(SUPABASE_SETUP_MESSAGE);
   }
 
-  const { data, error } = await supabase.functions.invoke("public-user-data", {
-    body: {
-      action,
-      public_user_id: publicUserId,
-      ...payload,
-    },
+  return invokeEdgeFunction<T>("public-user-data", {
+    action,
+    public_user_id: publicUserId,
+    ...payload,
   });
-
-  if (error) {
-    throw error;
-  }
-
-  if (data?.error) {
-    throw new Error(data.error);
-  }
-
-  return data as T;
 }
 
 export function getEmptyBootstrap() {

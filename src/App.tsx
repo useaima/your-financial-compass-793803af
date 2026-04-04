@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-route
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import AppErrorDialog from "@/components/AppErrorDialog";
 import Layout from "@/components/Layout";
 import { PublicUserProvider, usePublicUser } from "@/context/PublicUserContext";
 import Landing from "@/pages/Landing";
@@ -79,6 +80,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <AppErrorDialog />
       <BrowserRouter>
         <PublicUserProvider>
           <Routes>

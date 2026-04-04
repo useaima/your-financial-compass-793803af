@@ -1,7 +1,8 @@
+import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, Loader2, RefreshCw, ArrowUpRight, ShieldCheck, AlertTriangle, BarChart3, Bookmark } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -46,9 +47,11 @@ export default function StockPicks() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("stock-recommendations");
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await invokeEdgeFunction<{
+        recommendations?: StockRec[];
+        market_pulse?: string;
+        motley_fool_focus?: string;
+      }>("stock-recommendations");
       setRecs(data.recommendations || []);
       setMarketPulse(data.market_pulse || "");
       setFoolFocus(data.motley_fool_focus || "");

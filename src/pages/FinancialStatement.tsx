@@ -1,7 +1,8 @@
+import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import { Sparkles, Loader2, RefreshCw, TrendingUp, TrendingDown, Building2, CreditCard, ArrowDown, ArrowUp, Download } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ManualEntryForm from "@/components/financial/ManualEntryForm";
@@ -91,11 +92,9 @@ export default function FinancialStatement() {
 
     setLoading(true);
     try {
-      const { data: result, error } = await supabase.functions.invoke("generate-statement", {
-        body: { public_user_id: publicUserId },
+      const result = await invokeEdgeFunction<FinancialStatementData>("generate-statement", {
+        public_user_id: publicUserId,
       });
-      if (error) throw error;
-      if (result?.error) throw new Error(result.error);
       setData(result);
     } catch (e: any) {
       toast.error(e.message || "Failed to generate statement");

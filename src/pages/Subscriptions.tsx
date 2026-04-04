@@ -14,7 +14,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { usePublicUser } from "@/context/PublicUserContext";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { SUBSCRIPTION_CATEGORIES, formatCurrency } from "@/lib/finance";
 import { cn } from "@/lib/utils";
 
@@ -138,12 +139,9 @@ export default function Subscriptions() {
 
     setAnalyzing(true);
     try {
-      const { data, error } = await supabase.functions.invoke("analyze-subscriptions", {
-        body: { subscriptions },
+      const data = await invokeEdgeFunction<AnalysisResult>("analyze-subscriptions", {
+        subscriptions,
       });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
       setAnalysis(data as AnalysisResult);
     } catch (error) {
       toast({

@@ -28,12 +28,14 @@ import {
   type UserGoal,
   type UserProfile,
 } from "@/lib/publicData";
+import { handleAppError, normalizeAppError } from "@/lib/appErrors";
 import { getOrCreatePublicUserId } from "@/lib/publicUser";
 
 type PublicUserContextValue = {
   publicUserId: string;
   bootstrap: BootstrapData;
   loading: boolean;
+  refreshing: boolean;
   saving: boolean;
   refresh: () => Promise<void>;
   completeOnboarding: (payload: OnboardingPayload) => Promise<void>;
@@ -49,32 +51,99 @@ type PublicUserContextValue = {
 };
 
 const PublicUserContext = createContext<PublicUserContextValue | undefined>(undefined);
+const BOOTSTRAP_CACHE_KEY = "eva-bootstrap-cache";
+
+function readCachedBootstrap(publicUserId: string) {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(BOOTSTRAP_CACHE_KEY);
+    if (!raw) {
+      return null;
+    }
+
+    const cached = JSON.parse(raw) as BootstrapData;
+    return cached.public_user_id === publicUserId ? cached : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCachedBootstrap(bootstrap: BootstrapData) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.setItem(BOOTSTRAP_CACHE_KEY, JSON.stringify(bootstrap));
+}
 
 export function PublicUserProvider({ children }: { children: ReactNode }) {
   const publicUserId = useMemo(() => getOrCreatePublicUserId(), []);
-  const [bootstrap, setBootstrap] = useState<BootstrapData>(() => getEmptyBootstrap());
+  const [bootstrap, setBootstrap] = useState<BootstrapData>(
+    () => readCachedBootstrap(publicUserId) ?? getEmptyBootstrap(),
+  );
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
 
+  const applyBootstrap = useCallback((data: BootstrapData) => {
+    setBootstrap(data);
+    writeCachedBootstrap(data);
+  }, []);
+
+  const handleRefreshFailure = useCallback((error: unknown) => {
+    const cached = readCachedBootstrap(publicUserId);
+    if (cached) {
+      setBootstrap(cached);
+    }
+
+    const message =
+      error instanceof Error
+        ? error.message
+        : handleAppError(error, "We could not load your workspace. Please try again.").message;
+    console.warn(message);
+  }, [publicUserId]);
+
   const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const data = await fetchBootstrap();
+      applyBootstrap(data);
+    } catch (error) {
+      handleRefreshFailure(error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [applyBootstrap, handleRefreshFailure]);
+
+  const initialize = useCallback(async () => {
     setLoading(true);
     try {
       const data = await fetchBootstrap();
-      setBootstrap(data);
+      applyBootstrap(data);
+    } catch (error) {
+      handleRefreshFailure(error);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [applyBootstrap, handleRefreshFailure]);
 
   useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    void initialize();
+  }, [initialize]);
 
   const runMutation = useCallback(async (callback: () => Promise<BootstrapData>) => {
     setSaving(true);
     try {
       const data = await callback();
       setBootstrap(data);
+      writeCachedBootstrap(data);
+    } catch (error) {
+      throw error instanceof Error
+        ? error
+        : normalizeAppError(error, "We could not save your changes. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -84,6 +153,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     publicUserId,
     bootstrap,
     loading,
+    refreshing,
     saving,
     refresh,
     completeOnboarding: async (payload) => runMutation(() => completeOnboarding(payload)),
@@ -100,6 +170,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     bootstrap,
     loading,
     publicUserId,
+    refreshing,
     refresh,
     runMutation,
     saving,

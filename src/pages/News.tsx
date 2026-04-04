@@ -1,7 +1,8 @@
+import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Newspaper, Loader2, RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE, supabase } from "@/integrations/supabase/client";
+import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -45,9 +46,7 @@ export default function News() {
 
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke("fetch-finance-news");
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
+      const data = await invokeEdgeFunction<{ articles?: NewsArticle[] }>("fetch-finance-news");
       setArticles(data.articles || []);
     } catch (e: any) {
       toast.error(e.message || "Failed to fetch news");
