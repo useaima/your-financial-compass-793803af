@@ -1,5 +1,5 @@
 
-CREATE TABLE public.notifications (
+CREATE TABLE IF NOT EXISTS public.notifications (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE NOT NULL,
   title TEXT NOT NULL,
@@ -12,25 +12,85 @@ CREATE TABLE public.notifications (
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own notifications"
-  ON public.notifications FOR SELECT
-  TO authenticated
-  USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notifications'
+      AND policyname = 'Users can view own notifications'
+  ) THEN
+    CREATE POLICY "Users can view own notifications"
+      ON public.notifications FOR SELECT
+      TO authenticated
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
-CREATE POLICY "Users can update own notifications"
-  ON public.notifications FOR UPDATE
-  TO authenticated
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notifications'
+      AND policyname = 'Users can update own notifications'
+  ) THEN
+    CREATE POLICY "Users can update own notifications"
+      ON public.notifications FOR UPDATE
+      TO authenticated
+      USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
-CREATE POLICY "Users can delete own notifications"
-  ON public.notifications FOR DELETE
-  TO authenticated
-  USING (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notifications'
+      AND policyname = 'Users can delete own notifications'
+  ) THEN
+    CREATE POLICY "Users can delete own notifications"
+      ON public.notifications FOR DELETE
+      TO authenticated
+      USING (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
-CREATE POLICY "Service role can insert notifications"
-  ON public.notifications FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = user_id);
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'notifications'
+      AND policyname = 'Service role can insert notifications'
+  ) THEN
+    CREATE POLICY "Service role can insert notifications"
+      ON public.notifications FOR INSERT
+      TO authenticated
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+END
+$$;
 
-ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'notifications'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;
+  END IF;
+END
+$$;

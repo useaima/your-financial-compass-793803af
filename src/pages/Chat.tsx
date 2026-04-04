@@ -42,25 +42,6 @@ export default function Chat() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [entries]);
 
-  useEffect(() => {
-    const starterPrompt = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.starterPrompt;
-    const autoStart = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.autoStart;
-
-    if (!starterPrompt || hasAutostarted.current) {
-      return;
-    }
-
-    hasAutostarted.current = true;
-
-    if (autoStart) {
-      void send(starterPrompt);
-    } else {
-      setInput(starterPrompt);
-    }
-
-    navigate(location.pathname, { replace: true, state: {} });
-  }, [location.pathname, location.state, navigate, send]);
-
   const addEntry = useCallback((entry: ChatEntry) => {
     setEntries((prev) => [...prev, entry]);
   }, []);
@@ -118,6 +99,25 @@ export default function Chat() {
       setIsLoading(false);
     }
   }, [addEntry, isLoading, messages, refresh]);
+
+  useEffect(() => {
+    const starterPrompt = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.starterPrompt;
+    const autoStart = (location.state as { starterPrompt?: string; autoStart?: boolean } | null)?.autoStart;
+
+    if (!starterPrompt || hasAutostarted.current) {
+      return;
+    }
+
+    hasAutostarted.current = true;
+
+    if (autoStart) {
+      void send(starterPrompt);
+    } else {
+      setInput(starterPrompt);
+    }
+
+    navigate(location.pathname, { replace: true, state: {} });
+  }, [location.pathname, location.state, navigate, send]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
