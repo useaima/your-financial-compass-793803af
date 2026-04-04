@@ -60,7 +60,7 @@ const mobileTabs: NavItem[] = [
   { path: "/settings", label: "Settings", icon: Settings },
 ];
 
-const mobileMoreSections = [
+const mobileMoreSections: Array<{ label: string; items: NavItem[] }> = [
   {
     label: "Track",
     items: [
@@ -86,7 +86,7 @@ const mobileMoreSections = [
       { path: "/feedback", label: "Feedback", icon: MessageCircle },
     ],
   },
-] as const;
+];
 
 function SidebarButton({
   item,
