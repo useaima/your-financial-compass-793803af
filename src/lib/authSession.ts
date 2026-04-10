@@ -10,10 +10,43 @@ function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
+function decodeJwtPayload(token: string) {
+  try {
+    const [, payload] = token.split(".");
+    if (!payload) {
+      return null;
+    }
+
+    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
+    return JSON.parse(window.atob(padded)) as { iat?: number; exp?: number };
+  } catch {
+    return null;
+  }
+}
+
+async function waitForTokenActivation(accessToken: string) {
+  const payload = decodeJwtPayload(accessToken);
+  const issuedAt = payload?.iat;
+
+  if (!issuedAt) {
+    return;
+  }
+
+  const currentTime = Math.floor(Date.now() / 1000);
+  const delaySeconds = issuedAt - currentTime;
+
+  if (delaySeconds > 0) {
+    await sleep((delaySeconds + 1) * 1000);
+  }
+}
+
 async function validateSession(session: Session | null): Promise<TrustedSessionResult> {
   if (!session?.access_token) {
     return { session: null, user: null };
   }
+
+  await waitForTokenActivation(session.access_token);
 
   const { data, error } = await supabase.auth.getUser(session.access_token);
   if (error || !data.user) {
