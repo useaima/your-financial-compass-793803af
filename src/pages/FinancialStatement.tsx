@@ -99,13 +99,20 @@ export default function FinancialStatement() {
     }
   };
 
-  const allAssets = data?.assets || manualAssets;
-  const allLiabilities = data?.liabilities || manualLiabilities;
+  const allAssets = (data?.assets?.length ? data.assets : manualAssets) ?? [];
+  const allLiabilities = (data?.liabilities?.length ? data.liabilities : manualLiabilities) ?? [];
   const totalAssetValue = allAssets.reduce((s, a) => s + a.value, 0);
   const totalLiabilityBalance = allLiabilities.reduce((s, l) => s + l.balance, 0);
   const manualPassiveIncome = manualAssets.reduce((s, a) => s + a.cashflow, 0);
   const totalPassiveIncome = data?.passive_income ?? manualPassiveIncome;
-  const adjustedCashflow = data?.monthly_cashflow ?? 0;
+  const liabilityPayments = allLiabilities.reduce((sum, liability) => sum + liability.payment, 0);
+  const operatingExpenses = data?.expenses.reduce((sum, expense) => sum + expense.amount, 0) ?? 0;
+  const adjustedTotalExpenses = Math.max(data?.total_expenses ?? 0, operatingExpenses + liabilityPayments);
+  const adjustedTotalIncome = Math.max(
+    data?.total_income ?? 0,
+    (data?.income.salary ?? 0) + totalPassiveIncome + (data?.income.items ?? []).reduce((sum, item) => sum + item.amount, 0),
+  );
+  const adjustedCashflow = adjustedTotalIncome - adjustedTotalExpenses;
   const netWorth = totalAssetValue - totalLiabilityBalance;
 
   if (!data && !loading) {
@@ -193,11 +200,11 @@ export default function FinancialStatement() {
           <div className="flex gap-6 text-sm">
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Total Income</p>
-              <p className="font-semibold text-primary tabular-nums">{formatCurrency(data.total_income)}</p>
+              <p className="font-semibold text-primary tabular-nums">{formatCurrency(adjustedTotalIncome)}</p>
             </div>
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Total Expenses</p>
-              <p className="font-semibold text-destructive tabular-nums">{formatCurrency(data.total_expenses)}</p>
+              <p className="font-semibold text-destructive tabular-nums">{formatCurrency(adjustedTotalExpenses)}</p>
             </div>
             <div className="text-center">
               <p className="text-muted-foreground text-xs">Net Worth</p>
@@ -213,8 +220,8 @@ export default function FinancialStatement() {
         <CashflowDiagram
           salary={data.income.salary}
           passiveIncome={totalPassiveIncome}
-          totalIncome={data.total_income}
-          totalExpenses={data.total_expenses}
+          totalIncome={adjustedTotalIncome}
+          totalExpenses={adjustedTotalExpenses}
           monthlyCashflow={adjustedCashflow}
           totalAssets={totalAssetValue}
           totalLiabilities={totalLiabilityBalance}
@@ -278,7 +285,7 @@ export default function FinancialStatement() {
               ))}
               <div className="flex items-center justify-between px-5 py-3 bg-destructive/5">
                 <span className="text-sm font-bold text-foreground">Total Expenses</span>
-                <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(data.total_expenses + manualPayments)}</span>
+                <span className="text-sm font-bold text-destructive tabular-nums">{formatCurrency(adjustedTotalExpenses)}</span>
               </div>
             </div>
           </motion.div>

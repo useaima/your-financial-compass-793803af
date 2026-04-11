@@ -7,7 +7,6 @@ import {
   Target,
   FileText,
   Settings,
-  House,
   Menu,
   BarChart3,
   Newspaper,
@@ -20,7 +19,6 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import evaLockup from "@/assets/eva-lockup.png";
 import evaAppIcon from "@/assets/eva-app-icon.png";
 
 type NavItem = {
@@ -128,32 +126,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="window-controls-safe-sidebar fixed hidden w-[236px] flex-col gap-4 border-r border-border/90 bg-[hsl(var(--sidebar-background)/0.94)] p-4 pt-5 shadow-[18px_0_45px_-38px_rgba(110,73,75,0.28)] backdrop-blur-xl md:flex">
-        <div className="rounded-[1.5rem] border border-border/90 bg-card/95 p-4 shadow-[0_18px_40px_-30px_rgba(110,73,75,0.24)]">
-          <img src={evaLockup} alt="eva" className="h-14 w-auto object-contain" />
-          <p className="mt-3 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">
-            Your AI Finance Assistant
-          </p>
-        </div>
-
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-          <nav className="space-y-5 pb-2">
-            <div className="space-y-1">
+          <nav className="space-y-2 pb-2">
+            <div className="space-y-1 rounded-[1.5rem] border border-border/80 bg-card/90 p-2 shadow-[0_18px_40px_-34px_rgba(110,73,75,0.18)]">
               <SidebarButton
                 item={{ path: "/dashboard", label: "Dashboard", icon: LayoutDashboard }}
                 activePath={activePath}
                 onClick={() => navigate("/dashboard")}
               />
-            </div>
-
-            <div className="space-y-1">
-              <p className="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Plan</p>
               {primaryMenuItems.map((item) => (
                 <SidebarButton key={item.path} item={item} activePath={activePath} onClick={() => navigate(item.path)} />
               ))}
-            </div>
-
-            <div className="space-y-1">
-              <p className="px-3 text-xs font-semibold uppercase tracking-[0.24em] text-muted-foreground">Explore</p>
               {utilityMenuItems.map((item) => (
                 <SidebarButton key={item.path} item={item} activePath={activePath} onClick={() => navigate(item.path)} />
               ))}
@@ -165,23 +148,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
           {supportMenuItems.map((item) => (
             <SidebarButton key={item.path} item={item} activePath={activePath} onClick={() => navigate(item.path)} />
           ))}
-        </div>
-
-        <div className="mt-auto flex flex-col gap-2">
-          <div className="rounded-[1.25rem] border border-primary/15 bg-primary/[0.06] px-4 py-3">
-            <p className="text-sm font-semibold text-foreground">Your AI Finance Assistant</p>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Clarity for spending, planning, and calmer cashflow decisions.
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate("/")}
-            className="flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
-          >
-            <House className="h-[18px] w-[18px]" />
-            Back to home
-          </button>
         </div>
       </aside>
 
@@ -200,7 +166,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
             aria-label="Back to home"
           >
-            <House className="h-4 w-4" />
+            <LayoutDashboard className="h-4 w-4" />
           </button>
         </div>
       </header>

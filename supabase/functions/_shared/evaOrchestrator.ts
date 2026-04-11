@@ -710,5 +710,52 @@ Do not invent transactions, salaries, or holdings outside this data.`;
     "generate_financial_statement",
   );
 
-  return generated ?? fallbackStatement;
+  if (!generated) {
+    return fallbackStatement;
+  }
+
+  const incomeItems = Array.isArray(generated.income?.items) && generated.income.items.length > 0
+    ? generated.income.items
+    : fallbackStatement.income.items;
+  const expenses = Array.isArray(generated.expenses) && generated.expenses.length > 0
+    ? generated.expenses
+    : fallbackStatement.expenses;
+  const assets = Array.isArray(generated.assets) && generated.assets.length > 0
+    ? generated.assets
+    : fallbackStatement.assets;
+  const liabilities = Array.isArray(generated.liabilities) && generated.liabilities.length > 0
+    ? generated.liabilities
+    : fallbackStatement.liabilities;
+  const passiveIncome = Number.isFinite(generated.passive_income)
+    ? generated.passive_income
+    : fallbackStatement.passive_income;
+  const totalIncome = Number.isFinite(generated.total_income)
+    ? generated.total_income
+    : fallbackStatement.total_income;
+  const totalExpenses = Number.isFinite(generated.total_expenses)
+    ? generated.total_expenses
+    : fallbackStatement.total_expenses;
+  const monthlyCashflow = Number.isFinite(generated.monthly_cashflow)
+    ? generated.monthly_cashflow
+    : fallbackStatement.monthly_cashflow;
+  const summary = typeof generated.summary === "string" && generated.summary.trim().length > 0
+    ? generated.summary
+    : fallbackStatement.summary;
+
+  return {
+    income: {
+      salary: Number.isFinite(generated.income?.salary)
+        ? generated.income.salary
+        : fallbackStatement.income.salary,
+      items: incomeItems,
+    },
+    expenses,
+    assets,
+    liabilities,
+    passive_income: passiveIncome,
+    total_income: totalIncome,
+    total_expenses: totalExpenses,
+    monthly_cashflow: monthlyCashflow,
+    summary,
+  };
 }
