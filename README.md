@@ -1,4 +1,4 @@
-# eva
+# EVA
 
 eva is a public web personal-finance copilot built around one reliable loop:
 
