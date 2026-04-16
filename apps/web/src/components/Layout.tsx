@@ -138,11 +138,19 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             </div>
           </nav>
         </div>
-
-        <div className="border-t border-border/80 pt-3">
-          <UserProfileMenu />
-        </div>
       </aside>
+
+      <header className="fixed inset-x-0 top-0 z-40 hidden border-b border-border/90 bg-[hsl(var(--background)/0.94)] shadow-[0_16px_32px_-28px_rgba(110,73,75,0.25)] backdrop-blur-xl md:flex">
+        <div className="flex h-16 w-full items-center justify-between gap-3 px-6 md:ml-[236px]">
+          <BrandLockup
+            size="sm"
+            subtitleClassName="hidden"
+            titleClassName="text-[1.05rem]"
+            iconClassName="h-10 w-10 rounded-[0.95rem]"
+          />
+          <UserProfileMenu compact />
+        </div>
+      </header>
 
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border/90 bg-[hsl(var(--background)/0.94)] shadow-[0_16px_32px_-28px_rgba(110,73,75,0.25)] backdrop-blur-xl md:hidden">
         <div className="flex h-16 items-center justify-between gap-3 px-4">
@@ -218,7 +226,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <main className="window-controls-safe-main flex-1 px-0 pb-8 pt-16 md:ml-[236px] md:pt-0">
+      <main className="window-controls-safe-main flex-1 px-0 pb-8 pt-16 md:ml-[236px] md:pt-16">
         {children}
       </main>
     </div>

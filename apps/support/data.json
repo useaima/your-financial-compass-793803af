@@ -1,0 +1,105 @@
+{
+  "categories": [
+    {
+      "id": "getting-started",
+      "title": "Getting Started",
+      "articles": [
+        {
+          "id": "create-account",
+          "question": "How do I create an EVA account?",
+          "answer": "Open eva.useaima.com and choose Sign up. Enter your details, create a strong password, accept the required terms, and verify your email before continuing to onboarding."
+        },
+        {
+          "id": "verify-email",
+          "question": "I did not receive the verification email. What should I do?",
+          "answer": "Check spam or promotions first, then use the resend option on the verification screen. If it still does not arrive after a few minutes, confirm the email spelling and try again."
+        },
+        {
+          "id": "onboarding-basics",
+          "question": "What happens during onboarding?",
+          "answer": "Onboarding collects your baseline financial details, goals, budgets, and subscription awareness so EVA can tailor advice, summaries, and your dashboard."
+        }
+      ]
+    },
+    {
+      "id": "spending-and-chat",
+      "title": "Spending & AI Advisor",
+      "articles": [
+        {
+          "id": "log-spending",
+          "question": "How do I log spending in EVA?",
+          "answer": "Go to AI Advisor and type your spend in natural language, such as: \"I spent 20 dollars on groceries today.\" EVA should confirm the log and sync it across your dashboard and history."
+        },
+        {
+          "id": "history-sync",
+          "question": "My spend was confirmed in chat but I cannot see it in history.",
+          "answer": "Refresh the workspace first. If it still does not appear, sign out and sign back in to refresh the latest finance snapshot from the server."
+        }
+      ]
+    },
+    {
+      "id": "budgets-goals",
+      "title": "Budgets & Goals",
+      "articles": [
+        {
+          "id": "budget-limits",
+          "question": "How do budget limits work?",
+          "answer": "Set monthly limits by category in Budget Limits. EVA compares your current month spending against those limits and highlights healthy, watch, or over-limit categories."
+        },
+        {
+          "id": "goal-progress",
+          "question": "How do I update my savings goals?",
+          "answer": "Open Goals to edit the target amount, current amount, deadline, and icon. EVA uses that data to show progress and nudges."
+        }
+      ]
+    },
+    {
+      "id": "statements-and-insights",
+      "title": "Statements & Insights",
+      "articles": [
+        {
+          "id": "financial-statement",
+          "question": "What is included in the financial statement?",
+          "answer": "EVA generates a view of income, expenses, assets, liabilities, cash flow, and net worth using your stored financial entries and spending data."
+        },
+        {
+          "id": "insights-explained",
+          "question": "How are EVA insights generated?",
+          "answer": "Insights are grounded in your saved spending events, budgets, goals, and profile data. If there is not enough real data yet, EVA should say so clearly instead of inventing analysis."
+        }
+      ]
+    },
+    {
+      "id": "account-and-security",
+      "title": "Account & Security",
+      "articles": [
+        {
+          "id": "profile-and-settings",
+          "question": "Where do I change my profile or app settings?",
+          "answer": "Use the profile menu in the top-right corner. From there you can open Profile, Account, Notifications, Billing, Help, Feedback, and Settings."
+        },
+        {
+          "id": "sign-out",
+          "question": "How do I sign out?",
+          "answer": "Open the profile menu and select Sign out. This ends the session and helps protect your data on shared devices."
+        }
+      ]
+    },
+    {
+      "id": "troubleshooting",
+      "title": "Troubleshooting",
+      "articles": [
+        {
+          "id": "offline-mode",
+          "question": "What happens if I lose internet while using EVA?",
+          "answer": "EVA shows a network connection dialog and asks you to reconnect. When you are back online, retry the action you were attempting."
+        },
+        {
+          "id": "slow-mobile",
+          "question": "The app feels slow on mobile. What can I do?",
+          "answer": "Use a stable connection, close heavy background tabs, and install EVA as a PWA for faster repeat launches."
+        }
+      ]
+    }
+  ]
+}
