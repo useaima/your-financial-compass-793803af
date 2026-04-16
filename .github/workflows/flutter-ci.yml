@@ -1,4 +1,4 @@
-name: flutter-ci
+﻿name: flutter-ci
 
 on:
   push:
@@ -26,8 +26,7 @@ jobs:
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: stable
-          channel: stable
+          channel: 'stable'
 
       - name: Get Flutter Dependencies
         run: flutter pub get
