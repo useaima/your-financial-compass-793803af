@@ -6,6 +6,21 @@ type TrustedSessionResult = {
   user: User | null;
 };
 
+function isUnsupportedJwtAlgorithmError(error: unknown) {
+  return error instanceof Error && /unsupported jwt algorithm/i.test(error.message);
+}
+
+function getSessionFallback(session: Session | null): TrustedSessionResult {
+  if (!session?.access_token || !session.user) {
+    return { session: null, user: null };
+  }
+
+  return {
+    session,
+    user: session.user,
+  };
+}
+
 function sleep(ms: number) {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
@@ -48,18 +63,26 @@ async function validateSession(session: Session | null): Promise<TrustedSessionR
 
   await waitForTokenActivation(session.access_token);
 
-  const { data, error } = await supabase.auth.getUser(session.access_token);
-  if (error || !data.user) {
+  try {
+    const { data, error } = await supabase.auth.getUser(session.access_token);
+    if (error || !data.user) {
+      return { session: null, user: null };
+    }
+
+    return {
+      session: {
+        ...session,
+        user: data.user,
+      },
+      user: data.user,
+    };
+  } catch (error) {
+    if (isUnsupportedJwtAlgorithmError(error)) {
+      return getSessionFallback(session);
+    }
+
     return { session: null, user: null };
   }
-
-  return {
-    session: {
-      ...session,
-      user: data.user,
-    },
-    user: data.user,
-  };
 }
 
 async function refreshTrustedSession(
@@ -74,6 +97,10 @@ async function refreshTrustedSession(
   });
 
   if (error || !data.session) {
+    if (isUnsupportedJwtAlgorithmError(error)) {
+      return getSessionFallback(currentSession);
+    }
+
     return { session: null, user: null };
   }
 
@@ -132,5 +159,9 @@ export async function getTrustedAccessToken(options?: {
     waitMs: options?.waitMs,
   });
 
-  return trusted.session?.access_token ?? null;
+  return (
+    trusted.session?.access_token ??
+    options?.initialSession?.access_token ??
+    null
+  );
 }

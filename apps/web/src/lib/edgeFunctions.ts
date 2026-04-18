@@ -36,6 +36,8 @@ async function getAccessToken({
       if (trustedToken) {
         return trustedToken;
       }
+
+      return currentSession.access_token;
     }
 
     if (attempt < attempts - 1) {

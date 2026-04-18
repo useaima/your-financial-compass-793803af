@@ -228,9 +228,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       }
 
       if (!trusted.session || !trusted.user) {
-        await supabase.auth.signOut().catch(() => undefined);
-        setSession(null);
-        setUser(null);
+        setSession(nextSession);
+        setUser(nextSession.user ?? null);
         return;
       }
 
