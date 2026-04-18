@@ -2,9 +2,12 @@ import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
 import { EMPTY_DASHBOARD_SUMMARY } from "@/lib/finance";
 import type {
+  AffordabilityResult,
   BootstrapData,
   BudgetLimit,
+  DraftTransaction,
   FinancialEntry,
+  ImportJob,
   OnboardingPayload,
   Subscription,
   UserGoal,
@@ -34,8 +37,14 @@ function createEmptyBootstrap(userId = "", email: string | null = null): Bootstr
     dashboard_summary: { ...EMPTY_DASHBOARD_SUMMARY },
     advice: [],
     summaries: [],
+    pattern_summaries: [],
+    forecast: null,
+    subscription_review: null,
     budget_statuses: [],
     goal_statuses: [],
+    import_jobs: [],
+    draft_transactions: [],
+    notifications: [],
     empty_flags: {
       has_spending_history: false,
       has_goals: false,
@@ -114,4 +123,37 @@ export async function saveFinancialEntry(entry: Partial<FinancialEntry>) {
 
 export async function deleteFinancialEntry(entryId: string) {
   return invokeWorkspace<BootstrapData>("delete_financial_entry", { financial_entry_id: entryId });
+}
+
+export async function checkAffordability(input: {
+  amount: number;
+  category?: string | null;
+  cadence?: "one_time" | "monthly";
+}) {
+  return invokeWorkspace<AffordabilityResult>("check_affordability", input);
+}
+
+export async function importCsvTransactions(csvText: string, fileName: string) {
+  return invokeWorkspace<BootstrapData>("import_csv_transactions", {
+    csv_text: csvText,
+    file_name: fileName,
+  });
+}
+
+export async function reviewDraftTransaction(input: {
+  draftTransactionId: string;
+  decision: "approve" | "reject" | "edit";
+  updates?: Partial<DraftTransaction>;
+}) {
+  return invokeWorkspace<BootstrapData>("review_draft_transaction", {
+    draft_transaction_id: input.draftTransactionId,
+    decision: input.decision,
+    updates: input.updates ?? null,
+  });
+}
+
+export async function markNotificationRead(notificationId: string) {
+  return invokeWorkspace<BootstrapData>("mark_notification_read", {
+    notification_id: notificationId,
+  });
 }

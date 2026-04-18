@@ -20,6 +20,7 @@ import {
   isOffline,
   openNetworkErrorDialog,
 } from "@/lib/appErrors";
+import { SUPPORT_LINKS } from "@/lib/supportLinks";
 
 const defaultNetworkDialog: AppErrorDialogDetail = {
   kind: "network",
@@ -83,6 +84,18 @@ export default function AppErrorDialog() {
             {online
               ? dialog?.description ?? "We lost the request before it reached eva. Try again now."
               : "We cannot reach eva right now. Connect your network and try again."}
+            <span className="mt-3 block text-xs text-muted-foreground">
+              Need more help?{" "}
+              <a
+                href={SUPPORT_LINKS.offline}
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-primary hover:text-primary/85"
+              >
+                Open the network recovery guide
+              </a>
+              .
+            </span>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

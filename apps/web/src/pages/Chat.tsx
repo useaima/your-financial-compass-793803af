@@ -13,6 +13,7 @@ import HealthScoreGauge from "@/components/HealthScoreGauge";
 const quickActions = [
   { label: "Log spending", prompt: "I spent $12 on lunch and $5 on coffee today", icon: Wallet },
   { label: "Daily summary", prompt: "Give me my daily spending summary", icon: Calendar },
+  { label: "Can I afford this?", prompt: "Can I afford a $60 dinner this weekend?", icon: BarChart3 },
   { label: "Advise me", prompt: "Run a deep analysis of my spending and give me proactive advice.", icon: Sparkles },
   { label: "My score", prompt: "What's my financial score and how can I improve it?", icon: TrendingUp },
 ];
@@ -28,7 +29,7 @@ type ChatEntry =
 
 export default function Chat() {
   const location = useLocation();
-  const { refresh } = usePublicUser();
+  const { checkAffordability, refresh } = usePublicUser();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [entries, setEntries] = useState<ChatEntry[]>([]);
   const [input, setInput] = useState("");
@@ -46,6 +47,34 @@ export default function Chat() {
     setEntries((prev) => [...prev, entry]);
   }, []);
 
+  const parseAffordabilityPrompt = useCallback((text: string) => {
+    const normalized = text.trim().toLowerCase();
+    if (!/\bafford\b/.test(normalized)) {
+      return null;
+    }
+
+    const amountMatch = text.match(/\$?\s?(\d+(?:\.\d{1,2})?)/);
+    if (!amountMatch) {
+      return null;
+    }
+
+    const amount = Number(amountMatch[1]);
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return null;
+    }
+
+    const cadence = /\b(each month|monthly|per month|every month)\b/i.test(text)
+      ? "monthly"
+      : "one_time";
+    const categoryMatch = text.match(/\bfor\s+([a-z][a-z\s]{2,40})/i);
+
+    return {
+      amount,
+      cadence,
+      category: categoryMatch?.[1]?.trim() ?? null,
+    } as const;
+  }, []);
+
   const send = useCallback(async (text: string) => {
     const trimmed = text.trim();
     if (!trimmed || isLoading) return;
@@ -56,6 +85,27 @@ export default function Chat() {
     addEntry({ type: "msg", msg: userMsg });
     setInput("");
     setIsLoading(true);
+
+    const affordabilityRequest = parseAffordabilityPrompt(trimmed);
+    if (affordabilityRequest) {
+      try {
+        const result = await checkAffordability(affordabilityRequest);
+        const assistantMessage =
+          `## Affordability check\n` +
+          `- Amount: $${result.amount.toFixed(2)}${result.category ? ` for ${result.category}` : ""}\n` +
+          `- Status: ${result.status.replace(/_/g, " ")}\n` +
+          `- Suggested limit: $${result.suggested_limit.toFixed(2)}\n\n` +
+          `${result.summary}`;
+        const assistantMsg: Msg = { role: "assistant", content: assistantMessage };
+        setMessages((prev) => [...prev, assistantMsg]);
+        addEntry({ type: "msg", msg: assistantMsg });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Affordability check failed.");
+      } finally {
+        setIsLoading(false);
+      }
+      return;
+    }
 
     let assistantSoFar = "";
 
@@ -98,7 +148,7 @@ export default function Chat() {
       toast.error("Connection failed. Please try again.");
       setIsLoading(false);
     }
-  }, [addEntry, isLoading, messages, refresh]);
+  }, [addEntry, checkAffordability, isLoading, messages, parseAffordabilityPrompt, refresh]);
 
   useEffect(() => {
     const routeState = location.state as { starterPrompt?: string; autoStart?: boolean } | null;

@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 import ManualEntryForm from "@/components/financial/ManualEntryForm";
 import CashflowDiagram from "@/components/financial/CashflowDiagram";
 import { useFinancialEntries } from "@/hooks/useFinancialEntries";
+import { SUPPORT_LINKS } from "@/lib/supportLinks";
 
 type IncomeItem = { name: string; amount: number; description?: string };
 type ExpenseItem = { name: string; amount: number; category: string };
@@ -130,6 +131,18 @@ export default function FinancialStatement() {
             liabilities later will make the balance-sheet side more detailed, but they are no
             longer required to get your first statement.
           </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Need help?{" "}
+            <a
+              href={SUPPORT_LINKS.financialStatement}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary hover:text-primary/85"
+            >
+              Open the statement guide
+            </a>
+            .
+          </p>
           <button onClick={generate}
             className="mt-6 inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-colors active:scale-[0.97]"
           >
@@ -173,6 +186,14 @@ export default function FinancialStatement() {
             <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-primary/12 text-primary">CASHFLOW</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Rich Dad style · AI-generated analysis</p>
+          <a
+            href={SUPPORT_LINKS.financialStatement}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-2 inline-flex text-xs font-semibold text-primary hover:text-primary/85"
+          >
+            Statement help and troubleshooting
+          </a>
         </div>
         <div className="flex items-center gap-2">
           <button onClick={exportPDF} disabled={exporting}

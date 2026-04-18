@@ -46,29 +46,6 @@ async function getAccessToken({
   return null;
 }
 
-async function forceRefreshAccessToken() {
-  const sessionResult = await supabase.auth.getSession();
-  const currentSession = sessionResult.data.session ?? null;
-
-  if (!currentSession?.refresh_token) {
-    return getAccessToken({ waitForSession: true, allowRefresh: true });
-  }
-
-  const { data, error } = await supabase.auth.refreshSession({
-    refresh_token: currentSession.refresh_token,
-  });
-
-  if (error || !data.session) {
-    return getAccessToken({ waitForSession: true, allowRefresh: true });
-  }
-
-  return getTrustedAccessToken({
-    initialSession: data.session,
-    attempts: 3,
-    waitMs: 1400,
-  });
-}
-
 async function invokeEdgeFunctionRequest<T>(
   functionName: string,
   body: Record<string, unknown> | undefined,
@@ -107,47 +84,19 @@ async function invokeEdgeFunctionRequest<T>(
   };
 }
 
-function isRetryableAuthFailure(result: {
-  response: Response;
-  parsed: unknown;
-  rawText: string;
-}) {
-  const payload = result.parsed as EdgeFunctionErrorPayload | null;
-  const combinedMessage = [payload?.error, payload?.message, result.rawText]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  return result.response.status === 401 || combinedMessage.includes("invalid jwt");
-}
-
 export async function invokeEdgeFunction<T>(
   functionName: string,
   body?: Record<string, unknown>,
 ) {
   try {
     ensureOnline();
-    const initialAccessToken = await getAccessToken({
-      waitForSession: true,
-      allowRefresh: true,
-    });
+    const initialAccessToken = await getAccessToken({ waitForSession: true });
 
     let result = await invokeEdgeFunctionRequest<T>(functionName, body, initialAccessToken);
 
-    if (isRetryableAuthFailure(result)) {
-      // Sessions restored from storage can occasionally need a forced refresh before JWT validation
-      // passes consistently on all edge functions.
-      await new Promise((resolve) => window.setTimeout(resolve, 1400));
-      const refreshedAccessToken = await forceRefreshAccessToken();
-      result = await invokeEdgeFunctionRequest<T>(
-        functionName,
-        body,
-        refreshedAccessToken ?? initialAccessToken,
-      );
-    }
-
-    if (isRetryableAuthFailure(result)) {
-      await new Promise((resolve) => window.setTimeout(resolve, 1800));
+    if (result.response.status === 401) {
+      // Freshly verified email sessions can need one auth-server round trip before function JWT checks pass.
+      await new Promise((resolve) => window.setTimeout(resolve, 2500));
       const retryAccessToken = await getAccessToken({
         waitForSession: true,
         allowRefresh: true,
@@ -157,6 +106,22 @@ export async function invokeEdgeFunction<T>(
         body,
         retryAccessToken ?? initialAccessToken,
       );
+    }
+
+    if (result.response.status === 401) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data.session) {
+        const repairedToken = await getTrustedAccessToken({
+          initialSession: data.session,
+          attempts: 2,
+          waitMs: 1600,
+        });
+        result = await invokeEdgeFunctionRequest<T>(
+          functionName,
+          body,
+          repairedToken ?? data.session.access_token,
+        );
+      }
     }
 
     if (!result.response.ok) {

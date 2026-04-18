@@ -1,4 +1,5 @@
 {
+  "site_title": "EVA Help Center",
   "categories": [
     {
       "id": "getting-started",
@@ -7,33 +8,57 @@
         {
           "id": "create-account",
           "question": "How do I create an EVA account?",
-          "answer": "Open eva.useaima.com and choose Sign up. Enter your details, create a strong password, accept the required terms, and verify your email before continuing to onboarding."
+          "summary": "Sign up with your name, email, country, phone number, and a strong password.",
+          "answer": "Open eva.useaima.com and choose Sign up. Enter your full name, email, country, phone number, and a strong password, then accept the Terms and Privacy Policy. EVA creates your account and sends a verification email. After you confirm the email, EVA takes you into onboarding so your workspace starts with your real financial baseline instead of generic assumptions.",
+          "keywords": ["sign up", "create account", "new account", "register"]
         },
         {
           "id": "verify-email",
           "question": "I did not receive the verification email. What should I do?",
-          "answer": "Check spam or promotions first, then use the resend option on the verification screen. If it still does not arrive after a few minutes, confirm the email spelling and try again."
+          "summary": "Check spam first, then use resend and confirm the email address is correct.",
+          "answer": "First, check spam, junk, and promotions. Then return to the EVA verification screen and use Resend email. Make sure the address you entered is spelled correctly, and try to open the email in the same browser/device where you signed up. If the email still does not arrive after a few minutes, sign out, try signing up again with the correct address, and contact support@useaima.com if the problem repeats.",
+          "keywords": ["verification", "email", "resend", "confirm email", "sign in"]
         },
         {
-          "id": "onboarding-basics",
-          "question": "What happens during onboarding?",
-          "answer": "Onboarding collects your baseline financial details, goals, budgets, and subscription awareness so EVA can tailor advice, summaries, and your dashboard."
+          "id": "onboarding",
+          "question": "What information is required during onboarding?",
+          "summary": "EVA uses onboarding to build your financial baseline, goals, budgets, and subscriptions.",
+          "answer": "Onboarding is where EVA learns your current money picture. You will confirm your financial baseline, choose your intent and guidance style, set goals, define budget limits, and list important subscriptions or financial entries when relevant. Each step is auto-saved, and you can move back to adjust earlier answers before finishing. The first spend you enter at the end becomes the first real activity in your workspace.",
+          "keywords": ["onboarding", "setup", "first spend", "workspace"]
         }
       ]
     },
     {
-      "id": "spending-and-chat",
-      "title": "Spending & AI Advisor",
+      "id": "spending-logging",
+      "title": "Spending & Transactions",
       "articles": [
         {
-          "id": "log-spending",
-          "question": "How do I log spending in EVA?",
-          "answer": "Go to AI Advisor and type your spend in natural language, such as: \"I spent 20 dollars on groceries today.\" EVA should confirm the log and sync it across your dashboard and history."
+          "id": "log-spend",
+          "question": "How do I log a spend in EVA?",
+          "summary": "Tell the AI Advisor what you spent in plain language and EVA turns it into tracked spending.",
+          "answer": "Open AI Advisor and write your expense in plain language, for example: \"I spent 20 dollars on groceries and 10 dollars on transport today.\" EVA parses the message, logs the spending, and shows a confirmation bubble in chat. That same approved data should then appear in Spending History, Transactions, the Dashboard, and the summaries that EVA generates from your real activity.",
+          "keywords": ["spend", "log spending", "chat", "transactions", "history"]
         },
         {
-          "id": "history-sync",
-          "question": "My spend was confirmed in chat but I cannot see it in history.",
-          "answer": "Refresh the workspace first. If it still does not appear, sign out and sign back in to refresh the latest finance snapshot from the server."
+          "id": "history-mismatch",
+          "question": "My spend shows in chat but not in Spending History.",
+          "summary": "Refresh the workspace snapshot and confirm you are in the same signed-in account.",
+          "answer": "If chat says spending was logged but the rest of the workspace looks unchanged, start with a refresh of the page so EVA reloads your latest workspace snapshot. Make sure you are still signed into the same account that logged the spend. If the mismatch continues, sign out and back in once to force a clean bootstrap. If you used CSV import or forwarded receipts, check Transactions to see whether the item is still waiting in the review queue instead of already approved.",
+          "keywords": ["spending history", "missing transaction", "chat mismatch", "review queue"]
+        },
+        {
+          "id": "csv-import",
+          "question": "How do CSV imports work in EVA?",
+          "summary": "CSV rows go into a review queue first so they do not silently overwrite your ledger.",
+          "answer": "Open Transactions and use Upload CSV. EVA expects a file with date, merchant, and amount columns at minimum. Each valid row becomes a draft transaction in the review queue, where you can approve it, edit it, or reject it before it becomes a real spending event. Duplicate rows are skipped automatically when EVA recognizes the same merchant, date, amount, and source combination.",
+          "keywords": ["csv", "import", "draft transactions", "review queue"]
+        },
+        {
+          "id": "forward-receipts",
+          "question": "How do I forward receipts into EVA?",
+          "summary": "Forward receipts to your personal EVA inbox alias so they become reviewable draft transactions.",
+          "answer": "In Transactions, EVA shows your forwarding alias in the format receipts+your-user-id@useaima.com. Forward email receipts there. EVA ingests the receipt, extracts the merchant, amount, and date when possible, and places the result into your review queue. This keeps the system safe because forwarded receipts never become canonical spending until you approve them yourself.",
+          "keywords": ["forward receipts", "email receipts", "receipt inbox", "transactions"]
         }
       ]
     },
@@ -44,44 +69,56 @@
         {
           "id": "budget-limits",
           "question": "How do budget limits work?",
-          "answer": "Set monthly limits by category in Budget Limits. EVA compares your current month spending against those limits and highlights healthy, watch, or over-limit categories."
+          "summary": "Monthly category limits give EVA a grounded way to warn you before you overspend.",
+          "answer": "Set monthly limits by category from Budget Limits. EVA compares approved spending in that category against the limit and marks categories as healthy, watch, or over. This makes alerts and advice more useful because EVA can warn you before you drift too far instead of reacting only after the month is gone.",
+          "keywords": ["budget", "limits", "watch", "over budget"]
         },
         {
-          "id": "goal-progress",
-          "question": "How do I update my savings goals?",
-          "answer": "Open Goals to edit the target amount, current amount, deadline, and icon. EVA uses that data to show progress and nudges."
+          "id": "goals",
+          "question": "How do I update goals after onboarding?",
+          "summary": "Goals remain editable after setup and feed EVA's progress nudges.",
+          "answer": "Open Goals and update the target amount, current amount, deadline, or icon any time. EVA recalculates progress percentage, the monthly contribution needed, and whether the goal is still on track. That same status appears in the Dashboard and the recommendation cards EVA uses to guide your next step.",
+          "keywords": ["goals", "save goal", "progress", "deadline"]
         }
       ]
     },
     {
-      "id": "statements-and-insights",
+      "id": "statements-insights",
       "title": "Statements & Insights",
       "articles": [
         {
           "id": "financial-statement",
-          "question": "What is included in the financial statement?",
-          "answer": "EVA generates a view of income, expenses, assets, liabilities, cash flow, and net worth using your stored financial entries and spending data."
+          "question": "What does Generate Financial Statement include?",
+          "summary": "The statement combines your onboarding baseline, entries, subscriptions, and approved spending data.",
+          "answer": "Generate Financial Statement uses the data already stored in EVA. It combines your onboarding profile, approved financial entries, recurring subscriptions, and tracked spending to produce a cashflow-style statement with assets, liabilities, income, expenses, and net worth context. If you have very little data, EVA still generates a starter statement, but it may encourage you to add more financial entries so the balance sheet becomes more complete.",
+          "keywords": ["financial statement", "cashflow", "net worth", "generate statement"]
         },
         {
-          "id": "insights-explained",
-          "question": "How are EVA insights generated?",
-          "answer": "Insights are grounded in your saved spending events, budgets, goals, and profile data. If there is not enough real data yet, EVA should say so clearly instead of inventing analysis."
+          "id": "insights",
+          "question": "How are insights generated?",
+          "summary": "Insights are grounded in your stored records, not invented from thin air.",
+          "answer": "EVA builds insights from your canonical finance data: approved spending events, budgets, goals, subscriptions, and profile baseline. Daily and weekly summaries are lightweight grounded recaps, while deeper AI insights use the same stored data to highlight category pressure, savings opportunities, and next best actions. When data is still light, EVA should say so clearly and ask you to log more real activity instead of pretending it knows more than it does.",
+          "keywords": ["insights", "summary", "forecast", "patterns", "AI"]
         }
       ]
     },
     {
-      "id": "account-and-security",
+      "id": "account-security",
       "title": "Account & Security",
       "articles": [
         {
-          "id": "profile-and-settings",
-          "question": "Where do I change my profile or app settings?",
-          "answer": "Use the profile menu in the top-right corner. From there you can open Profile, Account, Notifications, Billing, Help, Feedback, and Settings."
+          "id": "change-profile",
+          "question": "How do I update my profile or preferences?",
+          "summary": "Use the profile menu to open profile, settings, and account controls.",
+          "answer": "Open the avatar menu in the top-right corner and choose Profile, Account, or Settings depending on what you want to change. Profile is for your personal details and planning defaults. Settings covers appearance, font size, reduced motion, and other app preferences. Account shows your signed-in identity and verification state.",
+          "keywords": ["profile", "settings", "preferences", "font size", "theme"]
         },
         {
           "id": "sign-out",
-          "question": "How do I sign out?",
-          "answer": "Open the profile menu and select Sign out. This ends the session and helps protect your data on shared devices."
+          "question": "How do I sign out securely?",
+          "summary": "Use the profile menu and sign out when leaving shared devices.",
+          "answer": "Open the profile avatar menu and choose Sign out. EVA clears your current session so someone else cannot reopen your workspace on the same device. If you are on a shared or public machine, always sign out before you leave the browser.",
+          "keywords": ["sign out", "logout", "shared device", "security"]
         }
       ]
     },
@@ -90,14 +127,18 @@
       "title": "Troubleshooting",
       "articles": [
         {
-          "id": "offline-mode",
+          "id": "offline",
           "question": "What happens if I lose internet while using EVA?",
-          "answer": "EVA shows a network connection dialog and asks you to reconnect. When you are back online, retry the action you were attempting."
+          "summary": "EVA shows a network dialog and asks you to reconnect before retrying.",
+          "answer": "When EVA cannot reach the server, it shows a network connection dialog instead of silently failing. Reconnect your network first, then choose Try again. If you were in the middle of onboarding, your draft answers stay auto-saved. If you were importing or reviewing transactions, refresh once the connection returns so the latest workspace state reloads.",
+          "keywords": ["offline", "network", "connection error", "retry"]
         },
         {
-          "id": "slow-mobile",
+          "id": "performance",
           "question": "The app feels slow on mobile. What can I do?",
-          "answer": "Use a stable connection, close heavy background tabs, and install EVA as a PWA for faster repeat launches."
+          "summary": "Use a stable connection, close heavy tabs, and install the EVA PWA for faster repeat launches.",
+          "answer": "On slower devices or networks, start by closing heavy background tabs and making sure your connection is stable. If you use EVA often on mobile, install the PWA so repeat launches feel faster and more app-like. If performance stays poor, use the support email and include the device type, browser, and what part of EVA feels slow so the team can reproduce it.",
+          "keywords": ["slow", "mobile", "performance", "PWA"]
         }
       ]
     }

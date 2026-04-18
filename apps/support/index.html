@@ -4,11 +4,8 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>EVA Help Center</title>
-    <meta
-      name="description"
-      content="Find answers to EVA account, spending, statements, and troubleshooting questions."
-    />
-    <link rel="stylesheet" href="styles.css" />
+    <meta name="description" content="Find answers to EVA account, spending, statements, and troubleshooting questions." />
+    <link rel="stylesheet" href="/styles.css" />
   </head>
   <body>
     <header class="hero">
@@ -25,7 +22,7 @@
     </header>
 
     <main class="container">
-      <section class="status">
+      <section class="status" id="directoryShell">
         <div>
           <h2>Popular topics</h2>
           <p>Quick links to the most common questions from EVA users.</p>
@@ -33,12 +30,26 @@
         <div class="status__chips" id="topicChips"></div>
       </section>
 
-      <section class="results">
+      <section class="results" id="directoryView">
         <div class="results__header">
           <h2>Browse all help articles</h2>
           <p id="resultsCount">Loading support content...</p>
         </div>
         <div id="categories" class="category-grid"></div>
+      </section>
+
+      <section class="article-view is-hidden" id="articleView">
+        <button id="backToDirectory" class="back-link" type="button">← Back to all help articles</button>
+        <p class="article-view__eyebrow" id="articleCategory"></p>
+        <h2 id="articleTitle"></h2>
+        <p class="article-view__summary" id="articleSummary"></p>
+        <article class="article-surface">
+          <p id="articleAnswer"></p>
+        </article>
+        <div class="article-links">
+          <a href="https://eva.useaima.com">Open EVA</a>
+          <a href="mailto:support@useaima.com">Contact support</a>
+        </div>
       </section>
     </main>
 
@@ -54,6 +65,6 @@
       </div>
     </footer>
 
-    <script src="app.js" defer></script>
+    <script src="/app.js" defer></script>
   </body>
 </html>

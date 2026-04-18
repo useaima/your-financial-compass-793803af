@@ -34,6 +34,7 @@ import {
   isValidEmail,
   type PasswordStrengthLevel,
 } from "@/lib/authProfile";
+import { SUPPORT_LINKS } from "@/lib/supportLinks";
 
 type AuthMode = "signin" | "signup" | "verify-email" | "set-password";
 type VerificationFlow = "signup" | "legacy";
@@ -900,6 +901,19 @@ export default function Auth({ forcedMode }: AuthProps) {
                           : "Verification emails should arrive within seconds. If not, use resend and check spam or promotions."}
                 </p>
               )}
+
+              <p className="text-xs text-muted-foreground">
+                Still stuck?{" "}
+                <a
+                  href={SUPPORT_LINKS.verifyEmail}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="font-semibold text-primary hover:text-primary/85"
+                >
+                  Open the verification help guide
+                </a>
+                .
+              </p>
             </div>
           )}
 

@@ -95,6 +95,59 @@ export default function Insights() {
       </motion.div>
 
       <div className="grid gap-3 md:grid-cols-2">
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-xl border border-border bg-card p-5"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Forecast
+          </p>
+          <h2 className="mt-3 text-base font-semibold text-foreground">
+            {bootstrap.forecast?.status === "overextended"
+              ? "This month is trending past break-even"
+              : "Month-end cash forecast"}
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+            {bootstrap.forecast?.summary ??
+              "Keep logging spending and eva will turn this into a grounded forecast."}
+          </p>
+          {bootstrap.forecast ? (
+            <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+              <span>{formatCurrency(bootstrap.forecast.projected_free_cash)} projected free cash</span>
+              <span>{formatCurrency(bootstrap.forecast.projected_end_of_month_spend)} projected spend</span>
+            </div>
+          ) : null}
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.04 }}
+          className="rounded-xl border border-border bg-card p-5"
+        >
+          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+            Pattern summaries
+          </p>
+          {bootstrap.pattern_summaries.length === 0 ? (
+            <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+              Not enough history yet. Once you keep logging, this panel will call out the categories
+              that are rising, cooling off, or staying stubbornly steady.
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {bootstrap.pattern_summaries.slice(0, 2).map((pattern) => (
+                <div key={pattern.id} className="rounded-lg border border-border bg-background/70 p-3">
+                  <p className="text-sm font-semibold text-foreground">{pattern.title}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{pattern.body}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </motion.div>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2">
         {(bootstrap.summaries ?? []).map((summary) => (
           <motion.div
             key={summary.period}

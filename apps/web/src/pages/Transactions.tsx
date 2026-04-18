@@ -1,7 +1,12 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Search } from "lucide-react";
+import { Check, Copy, FileUp, Mail, PencilLine, Search, X } from "lucide-react";
+import { toast } from "sonner";
 import { usePublicUser } from "@/context/PublicUserContext";
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   SPENDING_CATEGORIES,
   SPENDING_CATEGORY_COLORS,
@@ -9,6 +14,7 @@ import {
   type SpendingCategory,
   formatCurrencyDetailed,
 } from "@/lib/finance";
+import { SUPPORT_LINKS } from "@/lib/supportLinks";
 import { cn } from "@/lib/utils";
 
 type TransactionRow = {
@@ -32,9 +38,24 @@ const fadeUp = {
 };
 
 export default function Transactions() {
-  const { bootstrap } = usePublicUser();
+  const {
+    bootstrap,
+    importCsvTransactions,
+    reviewDraftTransaction,
+    userId,
+  } = usePublicUser();
   const [filter, setFilter] = useState<SpendingCategory | "All">("All");
   const [search, setSearch] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    merchant: "",
+    category: "Other",
+    amount: "",
+    transaction_date: "",
+    description: "",
+  });
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const transactions = useMemo<TransactionRow[]>(
     () =>
@@ -50,14 +71,18 @@ export default function Transactions() {
     [bootstrap.spending_logs],
   );
 
+  const pendingDrafts = bootstrap.draft_transactions.filter(
+    (draft) => draft.status === "pending",
+  );
+  const receiptForwardAddress = userId
+    ? `receipts+${userId}@useaima.com`
+    : "receipts@useaima.com";
+
   const filtered = useMemo(
     () =>
       transactions.filter((transaction) => {
         if (filter !== "All" && transaction.category !== filter) return false;
-        if (
-          search &&
-          !transaction.merchant.toLowerCase().includes(search.toLowerCase())
-        ) {
+        if (search && !transaction.merchant.toLowerCase().includes(search.toLowerCase())) {
           return false;
         }
         return true;
@@ -78,20 +103,312 @@ export default function Transactions() {
     return Object.entries(groupedMap);
   }, [filtered]);
 
+  const openDraftEditor = (draftId: string) => {
+    const draft = bootstrap.draft_transactions.find((item) => item.id === draftId);
+    if (!draft) return;
+
+    setEditingDraftId(draftId);
+    setEditForm({
+      merchant: draft.merchant,
+      category: draft.category,
+      amount: String(draft.amount),
+      transaction_date: draft.transaction_date,
+      description: draft.description,
+    });
+  };
+
+  const handleCopyReceiptAddress = async () => {
+    try {
+      await navigator.clipboard.writeText(receiptForwardAddress);
+      toast.success("Receipt forwarding address copied.");
+    } catch {
+      toast.error("Unable to copy the receipt address right now.");
+    }
+  };
+
+  const handleCsvImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    setImporting(true);
+    try {
+      const csvText = await file.text();
+      await importCsvTransactions(csvText, file.name);
+      toast.success("CSV imported into your review queue.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "CSV import failed.");
+    } finally {
+      setImporting(false);
+      event.target.value = "";
+    }
+  };
+
+  const handleReviewDecision = async (
+    draftId: string,
+    decision: "approve" | "reject" | "edit",
+  ) => {
+    try {
+      await reviewDraftTransaction({
+        draftTransactionId: draftId,
+        decision,
+        updates:
+          decision === "edit"
+            ? {
+                merchant: editForm.merchant,
+                category: editForm.category,
+                amount: Number(editForm.amount || 0),
+                transaction_date: editForm.transaction_date,
+                description: editForm.description,
+              }
+            : undefined,
+      });
+      setEditingDraftId(null);
+      toast.success(
+        decision === "reject"
+          ? "Draft rejected."
+          : decision === "edit"
+            ? "Draft approved with your edits."
+            : "Draft approved and added to your spending history.",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "We could not review that draft.");
+    }
+  };
+
   return (
-    <div className="mx-auto max-w-[840px] space-y-5 p-4 md:p-8">
-      <motion.div
-        initial={{ opacity: 0, y: -8 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-      >
+    <div className="mx-auto max-w-[980px] space-y-5 p-4 md:p-8">
+      <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
         <h1 className="text-2xl font-bold tracking-tight">Transactions</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          {transactions.length === 0
-            ? "No real spending logged yet"
-            : `${transactions.length} line item${transactions.length === 1 ? "" : "s"} from your real spending logs`}
+          Review imported drafts, forward receipts safely, and keep your canonical spending history clean.
         </p>
       </motion.div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        {[
+          {
+            label: "Tracked line items",
+            value: transactions.length,
+            detail: "Already approved into your workspace",
+          },
+          {
+            label: "Pending review",
+            value: pendingDrafts.length,
+            detail: "CSV rows or receipts waiting for approval",
+          },
+          {
+            label: "Recent import jobs",
+            value: bootstrap.import_jobs.length,
+            detail: "Latest import attempts across files and receipts",
+          },
+        ].map((stat, index) => (
+          <motion.div
+            key={stat.label}
+            custom={index}
+            initial="hidden"
+            animate="visible"
+            variants={fadeUp}
+            className="rounded-2xl border border-border bg-card p-4"
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              {stat.label}
+            </p>
+            <p className="mt-2 text-2xl font-bold text-foreground">{stat.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{stat.detail}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="rounded-[1.5rem] border border-border bg-card p-5"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                CSV import
+              </p>
+              <h2 className="mt-2 text-lg font-semibold text-foreground">
+                Bring in existing transactions without writing directly to your ledger
+              </h2>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Upload a CSV with date, merchant, and amount columns. EVA puts each row into a
+                review queue first so you can approve, reject, or fix it before it counts.
+              </p>
+            </div>
+            <Button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={importing}
+              className="gap-2"
+            >
+              <FileUp className="h-4 w-4" />
+              {importing ? "Importing..." : "Upload CSV"}
+            </Button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".csv,text/csv"
+            className="hidden"
+            onChange={handleCsvImport}
+          />
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+          className="rounded-[1.5rem] border border-border bg-card p-5"
+        >
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Forward receipts
+          </p>
+          <h2 className="mt-2 text-lg font-semibold text-foreground">
+            Email receipts to your EVA inbox
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Forward receipt emails here. EVA will turn them into draft transactions for review
+            instead of silently logging them.
+          </p>
+          <div className="mt-4 flex items-center gap-2 rounded-2xl border border-border/80 bg-background/80 px-3 py-3">
+            <Mail className="h-4 w-4 text-primary" />
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">
+              {receiptForwardAddress}
+            </span>
+            <Button type="button" variant="outline" size="sm" onClick={handleCopyReceiptAddress}>
+              <Copy className="h-3.5 w-3.5" />
+            </Button>
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground">
+            Need setup help?{" "}
+            <a
+              href={SUPPORT_LINKS.forwardReceipts}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary hover:text-primary/85"
+            >
+              Read the forwarding guide
+            </a>
+            .
+          </p>
+        </motion.div>
+      </div>
+
+      {bootstrap.import_jobs.length > 0 && (
+        <div className="space-y-3 rounded-[1.5rem] border border-border bg-card p-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Recent import jobs
+            </p>
+            <h2 className="mt-1 text-lg font-semibold text-foreground">
+              Latest file and receipt processing runs
+            </h2>
+          </div>
+          <div className="space-y-2">
+            {bootstrap.import_jobs.slice(0, 5).map((job) => (
+              <div key={job.id} className="rounded-2xl border border-border/80 bg-background/80 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">
+                      {job.file_name || job.source_ref || (job.source === "csv" ? "CSV import" : "Forwarded receipt")}
+                    </p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      {job.imported_count} draft(s) created · {job.duplicate_count} duplicate(s) skipped
+                    </p>
+                  </div>
+                  <span className="rounded-full bg-secondary px-3 py-1 text-xs font-semibold text-foreground">
+                    {job.status.replace(/_/g, " ")}
+                  </span>
+                </div>
+                {job.error_message ? (
+                  <p className="mt-2 text-xs text-muted-foreground">{job.error_message}</p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {pendingDrafts.length > 0 && (
+        <div className="space-y-3 rounded-[1.5rem] border border-border bg-card p-5">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                Review queue
+              </p>
+              <h2 className="mt-1 text-lg font-semibold text-foreground">
+                Approve or reject imported transactions
+              </h2>
+            </div>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              {pendingDrafts.length} pending
+            </span>
+          </div>
+
+          <div className="space-y-3">
+            {pendingDrafts.map((draft, index) => (
+              <motion.div
+                key={draft.id}
+                custom={index}
+                initial="hidden"
+                animate="visible"
+                variants={fadeUp}
+                className="rounded-2xl border border-border/80 bg-background/90 p-4"
+              >
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <p className="text-sm font-semibold text-foreground">{draft.merchant}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {new Date(draft.transaction_date).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      })}{" "}
+                      · {draft.source === "csv" ? "CSV import" : "Forwarded receipt"}
+                    </p>
+                    <p className="text-sm text-muted-foreground">{draft.description}</p>
+                  </div>
+                  <div className="text-right">
+                    <span
+                      className="inline-flex rounded-full px-2 py-1 text-[10px] font-medium"
+                      style={{
+                        backgroundColor: `${SPENDING_CATEGORY_COLORS[(draft.category as SpendingCategory) ?? "Other"]}15`,
+                        color:
+                          SPENDING_CATEGORY_COLORS[(draft.category as SpendingCategory) ?? "Other"],
+                      }}
+                    >
+                      {draft.category}
+                    </span>
+                    <p className="mt-2 text-lg font-bold text-foreground">
+                      {formatCurrencyDetailed(draft.amount)}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <Button type="button" size="sm" className="gap-1.5" onClick={() => handleReviewDecision(draft.id, "approve")}>
+                    <Check className="h-3.5 w-3.5" />
+                    Approve
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => openDraftEditor(draft.id)}>
+                    <PencilLine className="h-3.5 w-3.5" />
+                    Edit
+                  </Button>
+                  <Button type="button" size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => handleReviewDecision(draft.id, "reject")}>
+                    <X className="h-3.5 w-3.5" />
+                    Reject
+                  </Button>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <motion.div
         initial={{ opacity: 0, y: 8 }}
@@ -103,7 +420,7 @@ export default function Transactions() {
         <input
           value={search}
           onChange={(event) => setSearch(event.target.value)}
-          placeholder="Search descriptions..."
+          placeholder="Search approved transaction descriptions..."
           className="w-full rounded-xl border border-border bg-card py-2.5 pl-10 pr-4 text-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/40"
         />
       </motion.div>
@@ -134,9 +451,21 @@ export default function Transactions() {
 
       {transactions.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border bg-card px-6 py-12 text-center">
-          <p className="text-sm font-medium text-foreground">No transactions yet</p>
+          <p className="text-sm font-medium text-foreground">No approved transactions yet</p>
           <p className="mt-1 text-xs text-muted-foreground">
-            Use the AI Advisor to log spending, and each item will appear here automatically.
+            Use the AI Advisor, a CSV import, or forwarded receipts and then approve drafts here.
+          </p>
+          <p className="mt-3 text-xs text-muted-foreground">
+            If chat logs do not appear where you expect,{" "}
+            <a
+              href={SUPPORT_LINKS.historyMismatch}
+              target="_blank"
+              rel="noreferrer"
+              className="font-semibold text-primary hover:text-primary/85"
+            >
+              open the help article
+            </a>
+            .
           </p>
         </div>
       ) : (
@@ -180,6 +509,77 @@ export default function Transactions() {
           ))}
         </div>
       )}
+
+      <Dialog open={Boolean(editingDraftId)} onOpenChange={(open) => !open && setEditingDraftId(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit imported transaction</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="draft-merchant">Merchant</Label>
+              <Input
+                id="draft-merchant"
+                value={editForm.merchant}
+                onChange={(event) => setEditForm((current) => ({ ...current, merchant: event.target.value }))}
+              />
+            </div>
+            <div className="grid gap-2 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="draft-category">Category</Label>
+                <Input
+                  id="draft-category"
+                  value={editForm.category}
+                  onChange={(event) => setEditForm((current) => ({ ...current, category: event.target.value }))}
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="draft-amount">Amount</Label>
+                <Input
+                  id="draft-amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={editForm.amount}
+                  onChange={(event) => setEditForm((current) => ({ ...current, amount: event.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="draft-date">Transaction date</Label>
+              <Input
+                id="draft-date"
+                type="date"
+                value={editForm.transaction_date}
+                onChange={(event) =>
+                  setEditForm((current) => ({ ...current, transaction_date: event.target.value }))
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="draft-description">Description</Label>
+              <Input
+                id="draft-description"
+                value={editForm.description}
+                onChange={(event) =>
+                  setEditForm((current) => ({ ...current, description: event.target.value }))
+                }
+              />
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setEditingDraftId(null)}>
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                onClick={() => editingDraftId && handleReviewDecision(editingDraftId, "edit")}
+              >
+                Approve with changes
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

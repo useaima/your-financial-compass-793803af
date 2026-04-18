@@ -54,6 +54,9 @@ export default function Dashboard() {
   const advice = bootstrap.advice ?? [];
   const goalStatuses = bootstrap.goal_statuses ?? [];
   const budgetStatuses = bootstrap.budget_statuses ?? [];
+  const patternSummaries = bootstrap.pattern_summaries ?? [];
+  const forecast = bootstrap.forecast;
+  const subscriptionReview = bootstrap.subscription_review;
   const dailySummary = summaries.find((item) => item.period === "daily");
   const weeklySummary = summaries.find((item) => item.period === "weekly");
   const nextAction = advice[0] ?? null;
@@ -327,9 +330,124 @@ export default function Dashboard() {
             ))}
           </div>
 
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
             <motion.div
               custom={9}
+              initial="hidden"
+              animate="visible"
+              variants={fadeUp}
+              className="rounded-xl border border-border bg-card p-5"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Month-end forecast
+              </p>
+              <h2 className="mt-3 text-lg font-semibold text-foreground">
+                {forecast
+                  ? formatCurrency(forecast.projected_free_cash)
+                  : formatCurrency(0)}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {forecast?.summary ??
+                  "Keep logging real expenses so eva can estimate where this month is heading."}
+              </p>
+              {forecast ? (
+                <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+                  <span>{formatCurrency(forecast.projected_end_of_month_spend)} projected spend</span>
+                  <span>{forecast.days_remaining} day(s) left</span>
+                </div>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 w-full justify-between"
+                onClick={() =>
+                  navigate("/chat", {
+                    state: {
+                      starterPrompt: "Can I afford a $75 dinner this weekend?",
+                      autoStart: false,
+                    },
+                  })
+                }
+              >
+                Run affordability check
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </motion.div>
+
+            <motion.div
+              custom={10}
+              initial="hidden"
+              animate="visible"
+              variants={fadeUp}
+              className="rounded-xl border border-border bg-card p-5"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Pattern watch
+              </p>
+              {patternSummaries.length === 0 ? (
+                <div className="mt-4 rounded-xl border border-dashed border-border bg-background/75 p-4">
+                  <p className="text-sm font-semibold text-foreground">Not enough history yet</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
+                    Log a few more real expenses and eva will surface category patterns here.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 space-y-3">
+                  {patternSummaries.slice(0, 2).map((pattern) => (
+                    <div key={pattern.id} className="rounded-xl border border-border bg-background/75 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-sm font-semibold text-foreground">{pattern.title}</p>
+                        <span className="text-xs font-medium text-muted-foreground">
+                          {pattern.direction === "up"
+                            ? "Up"
+                            : pattern.direction === "down"
+                              ? "Down"
+                              : "Steady"}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                        {pattern.body}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </motion.div>
+
+            <motion.div
+              custom={11}
+              initial="hidden"
+              animate="visible"
+              variants={fadeUp}
+              className="rounded-xl border border-border bg-card p-5"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Subscription review
+              </p>
+              <h2 className="mt-3 text-lg font-semibold text-foreground">
+                {subscriptionReview?.flagged_count
+                  ? `${subscriptionReview.flagged_count} to review`
+                  : "All clear for now"}
+              </h2>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+                {subscriptionReview?.summary ??
+                  "Add or log recurring costs so eva can review subscription pressure more honestly."}
+              </p>
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-4 w-full justify-between"
+                onClick={() => navigate("/subscriptions")}
+              >
+                Open subscriptions
+                <ArrowRight className="h-4 w-4" />
+              </Button>
+            </motion.div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+            <motion.div
+              custom={12}
               initial="hidden"
               animate="visible"
               variants={fadeUp}
@@ -398,7 +516,7 @@ export default function Dashboard() {
             </motion.div>
 
             <motion.div
-              custom={10}
+              custom={13}
               initial="hidden"
               animate="visible"
               variants={fadeUp}

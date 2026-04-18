@@ -113,6 +113,57 @@ export interface DashboardSummary {
   latest_spending_date: string | null;
 }
 
+export interface PatternSummary {
+  id: string;
+  title: string;
+  body: string;
+  category: string | null;
+  period: "weekly" | "monthly";
+  amount: number;
+  direction: "up" | "down" | "steady";
+  confidence: "low" | "medium" | "high";
+}
+
+export interface ForecastResult {
+  period_end: string;
+  days_remaining: number;
+  month_to_date_spending: number;
+  projected_end_of_month_spend: number;
+  projected_end_of_month_cash: number;
+  projected_free_cash: number;
+  spending_run_rate: number;
+  status: "needs_more_data" | "on_track" | "watch" | "overextended";
+  summary: string;
+}
+
+export interface SubscriptionReviewItem {
+  id: string;
+  name: string;
+  action: "keep" | "review" | "cancel";
+  reason: string;
+  monthly_impact: number;
+}
+
+export interface SubscriptionReview {
+  status: "clear" | "review" | "trim";
+  active_count: number;
+  monthly_total: number;
+  flagged_count: number;
+  summary: string;
+  recommendations: SubscriptionReviewItem[];
+}
+
+export interface AffordabilityResult {
+  amount: number;
+  category: string | null;
+  cadence: "one_time" | "monthly";
+  projected_free_cash: number;
+  health_score: number;
+  status: "comfortable" | "tight" | "not_now" | "needs_more_data";
+  suggested_limit: number;
+  summary: string;
+}
+
 export type AdviceType =
   | "spending_acknowledgement"
   | "grounded_advice"
@@ -167,6 +218,51 @@ export interface GoalStatus {
   status: "on_track" | "needs_attention" | "achieved";
 }
 
+export type ImportSource = "csv" | "forwarded_email";
+
+export interface ImportJob {
+  id: string;
+  user_id?: string;
+  source: ImportSource;
+  status: "pending_review" | "processed" | "failed";
+  file_name: string | null;
+  source_ref: string | null;
+  imported_count: number;
+  duplicate_count: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DraftTransaction {
+  id: string;
+  user_id?: string;
+  import_job_id: string | null;
+  source: ImportSource;
+  transaction_date: string;
+  merchant: string;
+  category: string;
+  amount: number;
+  currency: string;
+  description: string;
+  dedupe_key: string;
+  status: "pending" | "approved" | "rejected";
+  raw_payload: Record<string, unknown> | null;
+  created_at?: string;
+  reviewed_at?: string | null;
+}
+
+export interface NotificationItem {
+  id: string;
+  user_id?: string;
+  type: string;
+  title: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface EmptyFlags {
   has_spending_history: boolean;
   has_goals: boolean;
@@ -195,8 +291,14 @@ export interface BootstrapData {
   dashboard_summary: DashboardSummary;
   advice: AdviceResult[];
   summaries: SummaryResult[];
+  pattern_summaries: PatternSummary[];
+  forecast: ForecastResult | null;
+  subscription_review: SubscriptionReview | null;
   budget_statuses: BudgetStatus[];
   goal_statuses: GoalStatus[];
+  import_jobs: ImportJob[];
+  draft_transactions: DraftTransaction[];
+  notifications: NotificationItem[];
   empty_flags: EmptyFlags;
 }
 

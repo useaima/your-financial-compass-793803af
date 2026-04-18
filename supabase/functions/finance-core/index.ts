@@ -1,11 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
+  buildAffordabilityResult,
   buildBootstrap,
   corsHeaders,
   createAdminClient,
   getLegacyPublicUserId,
+  importCsvTransactions,
   migrateLegacyPublicData,
   normalizeProfile,
+  reviewDraftTransaction,
   replaceOnboardingData,
   requireAuthenticatedUser,
 } from "../_shared/financeCore.ts";
@@ -201,6 +204,58 @@ serve(async (req) => {
         .from("finance_financial_entries")
         .delete()
         .eq("id", entryId)
+        .eq("user_id", user.id);
+      if (error) throw error;
+    }
+
+    if (action === "check_affordability") {
+      const bootstrap = await buildBootstrap(user.id, user.email ?? null);
+      const affordability = buildAffordabilityResult({
+        amount: parseNumber(body.amount),
+        category: typeof body.category === "string" ? body.category : null,
+        cadence: body.cadence === "monthly" ? "monthly" : "one_time",
+        dashboardSummary: bootstrap.dashboard_summary,
+        forecast: bootstrap.forecast,
+        budgetStatuses: bootstrap.budget_statuses,
+        spendingEvents: bootstrap.spending_events,
+      });
+
+      return new Response(JSON.stringify(affordability), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "import_csv_transactions") {
+      const csvText = String(body.csv_text ?? "");
+      const fileName = typeof body.file_name === "string" ? body.file_name : null;
+      await importCsvTransactions(user.id, csvText, fileName);
+    }
+
+    if (action === "review_draft_transaction") {
+      const draftId = String(body.draft_transaction_id ?? "");
+      const decision =
+        body.decision === "reject" ? "reject" : body.decision === "edit" ? "edit" : "approve";
+      await reviewDraftTransaction(user.id, {
+        draftId,
+        decision,
+        updates:
+          body.updates && typeof body.updates === "object"
+            ? (body.updates as Record<string, unknown>)
+            : undefined,
+      });
+      const bootstrap = await buildBootstrap(user.id, user.email ?? null);
+
+      return new Response(JSON.stringify(bootstrap), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (action === "mark_notification_read") {
+      const notificationId = String(body.notification_id ?? "");
+      const { error } = await admin
+        .from("notifications")
+        .update({ is_read: true })
+        .eq("id", notificationId)
         .eq("user_id", user.id);
       if (error) throw error;
     }

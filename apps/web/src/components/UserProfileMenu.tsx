@@ -162,10 +162,7 @@ export default function UserProfileMenu({
       <DropdownMenuContent
         align="end"
         sideOffset={12}
-        className={cn(
-          "w-[19rem] rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-2xl ring-1 ring-border/60",
-          contentClassName,
-        )}
+        className={cn("w-[19rem] rounded-2xl border border-border bg-popover p-2 text-popover-foreground shadow-2xl ring-1 ring-border/60", contentClassName)}
       >
         <DropdownMenuLabel className="rounded-xl border border-border bg-muted p-3">
           <div className="flex items-center gap-3">

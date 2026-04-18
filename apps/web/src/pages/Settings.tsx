@@ -38,6 +38,7 @@ import {
   type FontScale,
   type SettingsSection,
 } from "@/lib/appPreferences";
+import { SUPPORT_LINKS } from "@/lib/supportLinks";
 import { cn } from "@/lib/utils";
 
 type SectionMeta = {
@@ -190,7 +191,7 @@ export default function Settings() {
   const requestedSection = searchParams.get("section");
   const activeSection = normalizeSettingsSection(requestedSection);
 
-  const { bootstrap, updateProfile, saving, signOut, user } = usePublicUser();
+  const { bootstrap, markNotificationRead, updateProfile, saving, signOut, user } = usePublicUser();
   const { preferences, setFontScale, setReducedMotion } = useAppPreferences();
   const { theme, setTheme } = useTheme();
   const { isSupported, permission, requestPermission } = usePushNotifications();
@@ -701,6 +702,56 @@ export default function Settings() {
             <Save className="h-4 w-4" />
             Save notification preferences
           </Button>
+
+          <div className="space-y-3">
+            <h3 className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+              Recent EVA notifications
+            </h3>
+            {bootstrap.notifications.length === 0 ? (
+              <div className="rounded-2xl border border-dashed border-border bg-background/80 p-4 text-sm text-muted-foreground">
+                As EVA starts generating daily and weekly summaries, they will appear here.
+              </div>
+            ) : (
+              bootstrap.notifications.map((notification) => (
+                <div key={notification.id} className="rounded-2xl border border-border bg-background/80 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{notification.title}</p>
+                      <p className="mt-1 text-sm text-muted-foreground">{notification.body}</p>
+                      <p className="mt-2 text-xs text-muted-foreground">
+                        {new Date(notification.created_at).toLocaleString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </p>
+                    </div>
+                    {!notification.is_read && (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          void markNotificationRead(notification.id)
+                            .then(() => toast.success("Notification marked as read."))
+                            .catch((error) =>
+                              toast.error(
+                                error instanceof Error
+                                  ? error.message
+                                  : "Unable to update the notification right now.",
+                              ),
+                            );
+                        }}
+                      >
+                        Mark read
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </SectionSurface>
       )}
 
@@ -758,27 +809,43 @@ export default function Settings() {
       {activeSection === "help" && (
         <SectionSurface
           title="Help and support"
-          subtitle="Use these paths when you need guidance or want to troubleshoot quickly."
+          subtitle="The full help center lives at support.useaima.com. Use these direct links when you need help quickly."
           icon={HelpCircle}
         >
           <div className="grid gap-4">
             {[
               {
-                title: "Chat with AI Advisor",
-                desc: "Ask eva about spending, cash flow, goals, and next-best actions from the AI Advisor tab.",
+                title: "Verification and sign-in help",
+                desc: "Open the article for verification emails, resend behavior, and getting back into your workspace.",
+                href: SUPPORT_LINKS.verifyEmail,
               },
               {
-                title: "Review your workspace health",
-                desc: "Use the dashboard, spending insights, and financial statement pages to cross-check your current picture.",
+                title: "Spending history mismatch",
+                desc: "Use this when chat says spending was logged but the workspace does not seem to reflect it yet.",
+                href: SUPPORT_LINKS.historyMismatch,
               },
               {
-                title: "Need product help?",
-                desc: "Open Feedback from your profile menu and tell us what is blocking you or what feels unclear.",
+                title: "Financial statement troubleshooting",
+                desc: "Read the guide for generating your statement and handling missing-data or session issues.",
+                href: SUPPORT_LINKS.financialStatement,
+              },
+              {
+                title: "Network and offline recovery",
+                desc: "Use the offline guide when EVA cannot reach the server or your connection drops mid-session.",
+                href: SUPPORT_LINKS.offline,
               },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-border bg-background/80 p-4">
                 <p className="text-sm font-semibold text-foreground">{item.title}</p>
                 <p className="mt-1 text-sm text-muted-foreground">{item.desc}</p>
+                <a
+                  href={item.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-3 inline-flex text-sm font-semibold text-primary hover:text-primary/85"
+                >
+                  Open article
+                </a>
               </div>
             ))}
           </div>

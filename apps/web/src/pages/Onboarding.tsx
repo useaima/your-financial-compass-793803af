@@ -32,6 +32,7 @@ import {
   USER_TYPES,
   formatCurrencyDetailed,
 } from "@/lib/finance";
+import { SUPPORT_LINKS } from "@/lib/supportLinks";
 
 type StepId =
   | "welcome"
@@ -1451,6 +1452,18 @@ export default function Onboarding() {
                   placeholder="e.g. I spent $20 on food and $10 on transport"
                   className="min-h-[130px] w-full rounded-[1.2rem] border border-border bg-card px-4 py-3 text-sm outline-none transition focus:ring-1 focus:ring-primary/40"
                 />
+                <p className="text-xs text-muted-foreground">
+                  Need help finishing onboarding?{" "}
+                  <a
+                    href={SUPPORT_LINKS.onboarding}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-primary hover:text-primary/85"
+                  >
+                    Open the onboarding guide
+                  </a>
+                  .
+                </p>
                 <div className="flex items-center justify-between">
                   <StepBackButton onClick={goBack} />
                   <div className="flex items-center gap-3">

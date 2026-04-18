@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { MotionConfig } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -12,6 +12,7 @@ import PwaRuntime from "@/components/PwaRuntime";
 import { AppPreferencesProvider } from "@/context/AppPreferencesContext";
 import { PublicUserProvider, usePublicUser } from "@/context/PublicUserContext";
 import { useAppPreferences } from "@/context/app-preferences-context";
+import { SUPPORT_BASE_URL } from "@/lib/supportLinks";
 import Landing from "@/pages/Landing";
 
 const pageLoaders = import.meta.glob<{ default: React.ComponentType<any> }>(
@@ -62,6 +63,16 @@ function FullPageLoading() {
 
 function RouteSuspense({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<FullPageLoading />}>{children}</Suspense>;
+}
+
+function ExternalRedirect({ href }: { href: string }) {
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.location.replace(href);
+    }
+  }, [href]);
+
+  return <FullPageLoading />;
 }
 
 const AppPage = ({ children }: { children: React.ReactNode }) => (
@@ -179,7 +190,7 @@ const App = () => (
                   <Route path="/insights" element={<ProtectedPage><Insights /></ProtectedPage>} />
                   <Route path="/news" element={<ProtectedPage><News /></ProtectedPage>} />
                   <Route path="/stock-picks" element={<ProtectedPage><StockPicks /></ProtectedPage>} />
-                  <Route path="/help" element={<Navigate to="/settings?section=help" replace />} />
+                  <Route path="/help" element={<ExternalRedirect href={SUPPORT_BASE_URL} />} />
                   <Route path="/feedback" element={<Navigate to="/settings?section=feedback" replace />} />
                   <Route path="/budget" element={<ProtectedPage><Budget /></ProtectedPage>} />
                   <Route path="/spending-history" element={<ProtectedPage><SpendingHistory /></ProtectedPage>} />

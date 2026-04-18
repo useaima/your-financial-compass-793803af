@@ -1,14 +1,15 @@
 # EVA Support Help Center
 
-This folder contains a static help center designed for deployment to `support.useaima.com`.
+This folder is the source package for the separate `aima-support` repo and its Vercel project at `support.useaima.com`.
 
-## Included files
-- `index.html`: main support homepage
-- `styles.css`: responsive support-center styling
-- `app.js`: search and category filtering
-- `data.json`: help-article content
+## What is included
+- `index.html`: support shell with directory + article views
+- `styles.css`: static responsive styling
+- `app.js`: client-side routing, search, and article rendering
+- `data.json`: help-center article content
+- `vercel.json`: rewrite rules so `/articles/<id>` loads directly on Vercel
 
-## Deployment idea
-1. Point the `aima-support` Vercel project to `apps/support`.
-2. Set `support.useaima.com` as the production domain.
-3. Deploy as a static site for the fastest support experience on mobile and desktop.
+## Deployment target
+Copy these files into the existing `aima-support` repo root, commit there, and deploy through the existing `aima-support` Vercel project.
+
+This stays static on purpose so the support site remains fast, cheap, and easy to extend without coupling it to EVA backend releases.

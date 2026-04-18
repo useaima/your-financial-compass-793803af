@@ -180,6 +180,99 @@ type GoalStatus = {
   status: "on_track" | "needs_attention" | "achieved";
 };
 
+type PatternSummary = {
+  id: string;
+  title: string;
+  body: string;
+  category: string | null;
+  period: "weekly" | "monthly";
+  amount: number;
+  direction: "up" | "down" | "steady";
+  confidence: "low" | "medium" | "high";
+};
+
+type ForecastResult = {
+  period_end: string;
+  days_remaining: number;
+  month_to_date_spending: number;
+  projected_end_of_month_spend: number;
+  projected_end_of_month_cash: number;
+  projected_free_cash: number;
+  spending_run_rate: number;
+  status: "needs_more_data" | "on_track" | "watch" | "overextended";
+  summary: string;
+};
+
+type SubscriptionReview = {
+  status: "clear" | "review" | "trim";
+  active_count: number;
+  monthly_total: number;
+  flagged_count: number;
+  summary: string;
+  recommendations: Array<{
+    id: string;
+    name: string;
+    action: "keep" | "review" | "cancel";
+    reason: string;
+    monthly_impact: number;
+  }>;
+};
+
+type AffordabilityResult = {
+  amount: number;
+  category: string | null;
+  cadence: "one_time" | "monthly";
+  projected_free_cash: number;
+  health_score: number;
+  status: "comfortable" | "tight" | "not_now" | "needs_more_data";
+  suggested_limit: number;
+  summary: string;
+};
+
+type FinanceImportJob = {
+  id: string;
+  user_id: string;
+  source: "csv" | "forwarded_email";
+  status: "pending_review" | "processed" | "failed";
+  file_name: string | null;
+  source_ref: string | null;
+  imported_count: number;
+  duplicate_count: number;
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+type FinanceDraftTransaction = {
+  id: string;
+  user_id: string;
+  import_job_id: string | null;
+  source: "csv" | "forwarded_email";
+  transaction_date: string;
+  merchant: string;
+  category: string;
+  amount: number;
+  currency: string;
+  description: string;
+  dedupe_key: string;
+  status: "pending" | "approved" | "rejected";
+  raw_payload: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  reviewed_at: string | null;
+};
+
+type NotificationItem = {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  body: string;
+  is_read: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -194,6 +287,164 @@ function parseBoolean(value: unknown) {
 
 function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+function parseString(value: unknown, fallback = "") {
+  return typeof value === "string" ? value.trim() : fallback;
+}
+
+function normalizeCategory(value: unknown) {
+  const category = parseString(value, "Other");
+  return category || "Other";
+}
+
+function toIsoDate(value: Date) {
+  return value.toISOString().split("T")[0];
+}
+
+function getMonthStart(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+function getMonthEnd(date = new Date()) {
+  return new Date(date.getFullYear(), date.getMonth() + 1, 0);
+}
+
+function getMonthKey(date = new Date()) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getDaysInMonth(date = new Date()) {
+  return getMonthEnd(date).getDate();
+}
+
+function getMonthMetrics(
+  spendingEvents: FinanceSpendingEvent[],
+  date = new Date(),
+) {
+  const monthKey = getMonthKey(date);
+  const monthStart = getMonthStart(date);
+  const previousMonthStart = new Date(date.getFullYear(), date.getMonth() - 1, 1);
+  const previousMonthKey = getMonthKey(previousMonthStart);
+  const currentMonthEvents = spendingEvents.filter((event) => event.date.startsWith(monthKey));
+  const previousMonthEvents = spendingEvents.filter((event) =>
+    event.date.startsWith(previousMonthKey),
+  );
+  const currentMonthSpent = currentMonthEvents.reduce(
+    (sum, event) => sum + parseNumber(event.total),
+    0,
+  );
+  const previousMonthSpent = previousMonthEvents.reduce(
+    (sum, event) => sum + parseNumber(event.total),
+    0,
+  );
+  const elapsedDays = Math.max(
+    1,
+    Math.min(
+      getDaysInMonth(date),
+      Math.floor((date.getTime() - monthStart.getTime()) / (1000 * 60 * 60 * 24)) + 1,
+    ),
+  );
+  const daysInMonth = getDaysInMonth(date);
+
+  return {
+    monthKey,
+    currentMonthEvents,
+    previousMonthEvents,
+    currentMonthSpent,
+    previousMonthSpent,
+    elapsedDays,
+    daysInMonth,
+  };
+}
+
+function parseDateInput(value: unknown, fallbackDate: string) {
+  const parsed = new Date(parseString(value, fallbackDate));
+  if (Number.isNaN(parsed.getTime())) {
+    return fallbackDate;
+  }
+
+  return toIsoDate(parsed);
+}
+
+function buildDraftDedupeKey(input: {
+  userId: string;
+  source: "csv" | "forwarded_email";
+  transactionDate: string;
+  merchant: string;
+  amount: number;
+}) {
+  return [
+    input.userId,
+    input.source,
+    input.transactionDate,
+    input.merchant.toLowerCase().replace(/\s+/g, " ").trim(),
+    input.amount.toFixed(2),
+  ].join("::");
+}
+
+function parseCsvRows(csvText: string) {
+  const rows: string[][] = [];
+  let current = "";
+  let row: string[] = [];
+  let inQuotes = false;
+
+  for (let index = 0; index < csvText.length; index += 1) {
+    const char = csvText[index];
+    const next = csvText[index + 1];
+
+    if (char === '"') {
+      if (inQuotes && next === '"') {
+        current += '"';
+        index += 1;
+      } else {
+        inQuotes = !inQuotes;
+      }
+      continue;
+    }
+
+    if (char === "," && !inQuotes) {
+      row.push(current);
+      current = "";
+      continue;
+    }
+
+    if ((char === "\n" || char === "\r") && !inQuotes) {
+      if (char === "\r" && next === "\n") {
+        index += 1;
+      }
+      row.push(current);
+      current = "";
+      if (row.some((cell) => cell.trim().length > 0)) {
+        rows.push(row);
+      }
+      row = [];
+      continue;
+    }
+
+    current += char;
+  }
+
+  if (current.length > 0 || row.length > 0) {
+    row.push(current);
+    if (row.some((cell) => cell.trim().length > 0)) {
+      rows.push(row);
+    }
+  }
+
+  return rows.map((cells) => cells.map((cell) => cell.trim()));
+}
+
+function inferCategoryFromMerchant(merchant: string, description: string) {
+  const haystack = `${merchant} ${description}`.toLowerCase();
+  if (/(grocery|supermarket|market|grocer)/.test(haystack)) return "Groceries";
+  if (/(uber|taxi|bus|train|fuel|gas|transport|matatu)/.test(haystack)) return "Transport";
+  if (/(netflix|spotify|subscription|membership|plan)/.test(haystack)) return "Subscriptions";
+  if (/(restaurant|coffee|cafe|lunch|dinner|food|takeout)/.test(haystack)) return "Food";
+  if (/(rent|utility|internet|water|electricity|bill)/.test(haystack)) return "Bills";
+  if (/(pharmacy|clinic|doctor|health)/.test(haystack)) return "Health";
+  if (/(amazon|shop|mall|store|shopping)/.test(haystack)) return "Shopping";
+  return "Other";
 }
 
 export function getLegacyPublicUserId(value: unknown) {
@@ -551,6 +802,274 @@ function buildSummaries(
   ];
 }
 
+function buildPatternSummaries(spendingEvents: FinanceSpendingEvent[]) {
+  const now = new Date();
+  const { currentMonthEvents, previousMonthEvents } = getMonthMetrics(spendingEvents, now);
+  const recentWeekStart = new Date(now);
+  recentWeekStart.setDate(recentWeekStart.getDate() - 6);
+  const previousWeekStart = new Date(now);
+  previousWeekStart.setDate(previousWeekStart.getDate() - 13);
+  const previousWeekEnd = new Date(now);
+  previousWeekEnd.setDate(previousWeekEnd.getDate() - 7);
+
+  const weeklyTotals: Record<string, { current: number; previous: number }> = {};
+  const monthlyTotals: Record<string, { current: number; previous: number }> = {};
+
+  for (const event of currentMonthEvents) {
+    for (const item of event.items ?? []) {
+      const category = normalizeCategory(item.category);
+      monthlyTotals[category] = monthlyTotals[category] ?? { current: 0, previous: 0 };
+      monthlyTotals[category].current += parseNumber(item.amount);
+    }
+  }
+
+  for (const event of previousMonthEvents) {
+    for (const item of event.items ?? []) {
+      const category = normalizeCategory(item.category);
+      monthlyTotals[category] = monthlyTotals[category] ?? { current: 0, previous: 0 };
+      monthlyTotals[category].previous += parseNumber(item.amount);
+    }
+  }
+
+  for (const event of spendingEvents) {
+    const eventDate = new Date(event.date);
+    for (const item of event.items ?? []) {
+      const category = normalizeCategory(item.category);
+      weeklyTotals[category] = weeklyTotals[category] ?? { current: 0, previous: 0 };
+
+      if (eventDate >= recentWeekStart) {
+        weeklyTotals[category].current += parseNumber(item.amount);
+      } else if (eventDate >= previousWeekStart && eventDate <= previousWeekEnd) {
+        weeklyTotals[category].previous += parseNumber(item.amount);
+      }
+    }
+  }
+
+  const buildSummary = (
+    idPrefix: string,
+    period: PatternSummary["period"],
+    category: string,
+    currentAmount: number,
+    previousAmount: number,
+  ): PatternSummary => {
+    const delta = currentAmount - previousAmount;
+    const direction: PatternSummary["direction"] =
+      Math.abs(delta) < 5 ? "steady" : delta > 0 ? "up" : "down";
+    const confidence: PatternSummary["confidence"] =
+      currentAmount >= 120 ? "high" : currentAmount >= 50 ? "medium" : "low";
+    const movementText =
+      direction === "steady"
+        ? "is holding close to the prior period"
+        : direction === "up"
+          ? `is up by $${Math.abs(delta).toFixed(2)} versus the prior period`
+          : `is down by $${Math.abs(delta).toFixed(2)} versus the prior period`;
+
+    return {
+      id: `${idPrefix}-${category.toLowerCase().replace(/\s+/g, "-")}`,
+      title:
+        period === "weekly"
+          ? `${category} is shaping this week's pattern`
+          : `${category} is shaping this month's pattern`,
+      body: `${category} ${movementText}, with $${currentAmount.toFixed(2)} tracked in the current ${period}.`,
+      category,
+      period,
+      amount: currentAmount,
+      direction,
+      confidence,
+    };
+  };
+
+  const weeklySummaries = Object.entries(weeklyTotals)
+    .filter(([, totals]) => totals.current > 0)
+    .sort((left, right) => right[1].current - left[1].current)
+    .slice(0, 2)
+    .map(([category, totals]) =>
+      buildSummary("weekly-pattern", "weekly", category, totals.current, totals.previous),
+    );
+
+  const monthlySummaries = Object.entries(monthlyTotals)
+    .filter(([, totals]) => totals.current > 0)
+    .sort((left, right) => right[1].current - left[1].current)
+    .slice(0, 2)
+    .map(([category, totals]) =>
+      buildSummary("monthly-pattern", "monthly", category, totals.current, totals.previous),
+    );
+
+  return [...weeklySummaries, ...monthlySummaries];
+}
+
+function buildForecastResult(
+  dashboardSummary: DashboardSummary,
+  spendingEvents: FinanceSpendingEvent[],
+) {
+  const now = new Date();
+  const { currentMonthSpent, elapsedDays, daysInMonth } = getMonthMetrics(spendingEvents, now);
+  const projectedEndOfMonthSpend =
+    elapsedDays > 0 ? (currentMonthSpent / elapsedDays) * daysInMonth : currentMonthSpent;
+  const projectedFreeCash =
+    dashboardSummary.monthly_income -
+    dashboardSummary.monthly_fixed_expenses -
+    dashboardSummary.monthly_subscription_total -
+    projectedEndOfMonthSpend;
+  const projectedEndOfMonthCash = dashboardSummary.cash_balance + projectedFreeCash;
+  const spendingRunRate = elapsedDays > 0 ? currentMonthSpent / elapsedDays : 0;
+
+  let status: ForecastResult["status"] = "needs_more_data";
+  if (spendingEvents.length >= 2) {
+    if (projectedFreeCash >= 200) status = "on_track";
+    else if (projectedFreeCash >= 0) status = "watch";
+    else status = "overextended";
+  }
+
+  const summary =
+    status === "needs_more_data"
+      ? "Keep logging real expenses so eva can tighten the month-end forecast."
+      : status === "on_track"
+        ? `At the current run rate, you should finish the month with about $${projectedFreeCash.toFixed(2)} free after fixed costs, subscriptions, and variable spending.`
+        : status === "watch"
+          ? `At the current run rate, this month stays tight with about $${projectedFreeCash.toFixed(2)} left after planned costs.`
+          : `At the current run rate, variable spending would push you about $${Math.abs(projectedFreeCash).toFixed(2)} past break-even by month end.`;
+
+  return {
+    period_end: toIsoDate(getMonthEnd(now)),
+    days_remaining: Math.max(daysInMonth - elapsedDays, 0),
+    month_to_date_spending: currentMonthSpent,
+    projected_end_of_month_spend: Number(projectedEndOfMonthSpend.toFixed(2)),
+    projected_end_of_month_cash: Number(projectedEndOfMonthCash.toFixed(2)),
+    projected_free_cash: Number(projectedFreeCash.toFixed(2)),
+    spending_run_rate: Number(spendingRunRate.toFixed(2)),
+    status,
+    summary,
+  } satisfies ForecastResult;
+}
+
+function buildSubscriptionReview(
+  subscriptions: FinanceSubscription[],
+  dashboardSummary: DashboardSummary,
+) {
+  const activeSubscriptions = subscriptions.filter((subscription) => subscription.is_active);
+  const recommendations = activeSubscriptions
+    .map((subscription) => {
+      const monthlyImpact =
+        subscription.billing_cycle === "yearly"
+          ? parseNumber(subscription.price) / 12
+          : parseNumber(subscription.price);
+      const discretionaryCategory = /entertainment|music|video|gaming|shopping/i.test(
+        subscription.category,
+      );
+      const action: "keep" | "review" | "cancel" =
+        dashboardSummary.monthly_cashflow < 0 && discretionaryCategory && monthlyImpact >= 20
+          ? "cancel"
+          : monthlyImpact >= 25 || activeSubscriptions.length >= 5
+            ? "review"
+            : "keep";
+      const reason =
+        action === "cancel"
+          ? "Your monthly cash flow is already under pressure, so this recurring cost is the cleanest place to cut first."
+          : action === "review"
+            ? "This subscription is large enough to deserve a deliberate keep-or-cut decision."
+            : "This subscription currently fits the rest of your monthly plan.";
+
+      return {
+        id: subscription.id,
+        name: subscription.name,
+        action,
+        reason,
+        monthly_impact: Number(monthlyImpact.toFixed(2)),
+      };
+    })
+    .sort((left, right) => {
+      const order = { cancel: 0, review: 1, keep: 2 };
+      return order[left.action] - order[right.action] || right.monthly_impact - left.monthly_impact;
+    })
+    .slice(0, 4);
+
+  const flaggedCount = recommendations.filter((item) => item.action !== "keep").length;
+  const status: SubscriptionReview["status"] =
+    flaggedCount === 0 ? "clear" : flaggedCount >= 2 ? "trim" : "review";
+  const summary =
+    activeSubscriptions.length === 0
+      ? "No active subscriptions are being tracked yet."
+      : status === "clear"
+        ? `Your ${activeSubscriptions.length} tracked subscription${activeSubscriptions.length === 1 ? "" : "s"} fit the rest of your monthly cash picture for now.`
+        : status === "trim"
+          ? `Recurring costs are putting noticeable pressure on monthly cash flow. Review the highlighted subscriptions first.`
+          : `A few recurring costs are large enough to deserve a deliberate review before they become invisible habits.`;
+
+  return {
+    status,
+    active_count: activeSubscriptions.length,
+    monthly_total: Number(dashboardSummary.monthly_subscription_total.toFixed(2)),
+    flagged_count: flaggedCount,
+    summary,
+    recommendations,
+  } satisfies SubscriptionReview;
+}
+
+export function buildAffordabilityResult(input: {
+  amount: number;
+  category?: string | null;
+  cadence?: "one_time" | "monthly";
+  dashboardSummary: DashboardSummary;
+  forecast: ForecastResult | null;
+  budgetStatuses: BudgetStatus[];
+  spendingEvents: FinanceSpendingEvent[];
+}) {
+  const amount = Math.max(parseNumber(input.amount), 0);
+  const cadence = input.cadence === "monthly" ? "monthly" : "one_time";
+  const forecast =
+    input.forecast ?? buildForecastResult(input.dashboardSummary, input.spendingEvents);
+  const category = input.category ? normalizeCategory(input.category) : null;
+  const budgetStatus = category
+    ? input.budgetStatuses.find((status) => status.category === category)
+    : null;
+  const monthlyBurden = cadence === "monthly" ? amount : 0;
+  const oneTimeBurden = cadence === "one_time" ? amount : 0;
+  const projectedFreeCash =
+    forecast.projected_free_cash - monthlyBurden - (cadence === "one_time" ? amount : 0);
+  const suggestedLimit = Math.max(
+    0,
+    Number(
+      (
+        category && budgetStatus
+          ? Math.min(budgetStatus.remaining_amount, Math.max(forecast.projected_free_cash, 0))
+          : Math.max(forecast.projected_free_cash * 0.35, 0)
+      ).toFixed(2),
+    ),
+  );
+
+  let status: AffordabilityResult["status"] = "needs_more_data";
+  if (input.spendingEvents.length >= 2) {
+    if (projectedFreeCash >= 150 && (!budgetStatus || budgetStatus.status === "healthy")) {
+      status = "comfortable";
+    } else if (projectedFreeCash >= 0) {
+      status = "tight";
+    } else {
+      status = "not_now";
+    }
+  }
+
+  const summary =
+    status === "needs_more_data"
+      ? "eva needs a little more real spending history before it can answer confidently. Log a few more expenses first."
+      : status === "comfortable"
+        ? `Yes, this looks manageable right now. After accounting for your current forecast, you would still have about $${projectedFreeCash.toFixed(2)} of room left.`
+        : status === "tight"
+          ? `You can probably afford this, but it would leave only about $${projectedFreeCash.toFixed(2)} of cushion based on the current forecast.`
+          : `Not comfortably right now. Based on the current forecast, this would push you about $${Math.abs(projectedFreeCash).toFixed(2)} past your safe monthly buffer.`;
+
+  return {
+    amount,
+    category,
+    cadence,
+    projected_free_cash: Number(projectedFreeCash.toFixed(2)),
+    health_score: input.dashboardSummary.health_score,
+    status,
+    suggested_limit: suggestedLimit,
+    summary,
+  } satisfies AffordabilityResult;
+}
+
 function buildAdvice(
   dashboardSummary: DashboardSummary,
   spendingEvents: FinanceSpendingEvent[],
@@ -722,6 +1241,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
     eventsResult,
     financialEntriesResult,
     subscriptionResult,
+    importJobsResult,
+    draftTransactionsResult,
+    notificationsResult,
   ] = await Promise.all([
     admin.from("finance_profiles").select("*").eq("user_id", userId).maybeSingle(),
     admin.from("finance_goals").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
@@ -729,6 +1251,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
     admin.from("finance_spending_events").select("*").eq("user_id", userId).order("date", { ascending: false }).limit(120),
     admin.from("finance_financial_entries").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
     admin.from("finance_subscriptions").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+    admin.from("finance_import_jobs").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+    admin.from("finance_draft_transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(80),
+    admin.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(12),
   ]);
 
   if (profileResult.error) throw profileResult.error;
@@ -737,6 +1262,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
   if (eventsResult.error) throw eventsResult.error;
   if (financialEntriesResult.error) throw financialEntriesResult.error;
   if (subscriptionResult.error) throw subscriptionResult.error;
+  if (importJobsResult.error) throw importJobsResult.error;
+  if (draftTransactionsResult.error) throw draftTransactionsResult.error;
+  if (notificationsResult.error) throw notificationsResult.error;
 
   const profile = (profileResult.data as FinanceProfile | null) ?? null;
   const goals = (goalsResult.data as FinanceGoal[]) ?? [];
@@ -744,6 +1272,10 @@ export async function buildBootstrap(userId: string, email: string | null = null
   const spendingEvents = (eventsResult.data as FinanceSpendingEvent[]) ?? [];
   const financialEntries = (financialEntriesResult.data as FinanceFinancialEntry[]) ?? [];
   const subscriptions = (subscriptionResult.data as FinanceSubscription[]) ?? [];
+  const importJobs = (importJobsResult.data as FinanceImportJob[]) ?? [];
+  const draftTransactions =
+    (draftTransactionsResult.data as FinanceDraftTransaction[]) ?? [];
+  const notifications = (notificationsResult.data as NotificationItem[]) ?? [];
 
   const dashboardSummary = buildDashboardSummary(
     profile,
@@ -754,6 +1286,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
   const budgetStatuses = buildBudgetStatuses(budgetLimits, spendingEvents);
   const goalStatuses = buildGoalStatuses(goals, dashboardSummary);
   const summaries = buildSummaries(spendingEvents, budgetStatuses, goalStatuses);
+  const patternSummaries = buildPatternSummaries(spendingEvents);
+  const forecast = buildForecastResult(dashboardSummary, spendingEvents);
+  const subscriptionReview = buildSubscriptionReview(subscriptions, dashboardSummary);
   const advice = buildAdvice(
     dashboardSummary,
     spendingEvents,
@@ -780,8 +1315,14 @@ export async function buildBootstrap(userId: string, email: string | null = null
     dashboard_summary: dashboardSummary,
     advice,
     summaries,
+    pattern_summaries: patternSummaries,
+    forecast,
+    subscription_review: subscriptionReview,
     budget_statuses: budgetStatuses,
     goal_statuses: goalStatuses,
+    import_jobs: importJobs,
+    draft_transactions: draftTransactions,
+    notifications,
     empty_flags: {
       has_spending_history: spendingEvents.length > 0,
       has_goals: goals.length > 0,
@@ -895,6 +1436,414 @@ export async function replaceOnboardingData(
     );
     if (error) throw error;
   }
+}
+
+function normalizeDraftTransactionInput(input: {
+  userId: string;
+  source: "csv" | "forwarded_email";
+  transactionDate: string;
+  merchant: string;
+  category?: string;
+  amount: number;
+  currency?: string;
+  description?: string;
+  rawPayload?: Record<string, unknown>;
+}) {
+  const merchant = parseString(input.merchant, "Unknown merchant");
+  const description = parseString(input.description, merchant);
+  const transactionDate = parseDateInput(input.transactionDate, toIsoDate(new Date()));
+  const amount = Math.abs(parseNumber(input.amount));
+  const category =
+    normalizeCategory(input.category) || inferCategoryFromMerchant(merchant, description);
+
+  return {
+    user_id: input.userId,
+    source: input.source,
+    transaction_date: transactionDate,
+    merchant,
+    category,
+    amount,
+    currency: parseString(input.currency, "USD") || "USD",
+    description,
+    dedupe_key: buildDraftDedupeKey({
+      userId: input.userId,
+      source: input.source,
+      transactionDate,
+      merchant,
+      amount,
+    }),
+    raw_payload: input.rawPayload ?? {},
+  };
+}
+
+async function finalizeImportJobStatus(
+  admin: ReturnType<typeof createAdminClient>,
+  importJobId: string,
+  userId: string,
+) {
+  const { count, error: pendingError } = await admin
+    .from("finance_draft_transactions")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("import_job_id", importJobId)
+    .eq("status", "pending");
+
+  if (pendingError) throw pendingError;
+
+  const hasPending = (count ?? 0) > 0;
+  const { error: updateError } = await admin
+    .from("finance_import_jobs")
+    .update({ status: hasPending ? "pending_review" : "processed" })
+    .eq("id", importJobId)
+    .eq("user_id", userId);
+
+  if (updateError) throw updateError;
+}
+
+async function createDraftTransactions(
+  admin: ReturnType<typeof createAdminClient>,
+  params: {
+    userId: string;
+    source: "csv" | "forwarded_email";
+    fileName?: string | null;
+    sourceRef?: string | null;
+    drafts: Array<{
+      transactionDate: string;
+      merchant: string;
+      category?: string;
+      amount: number;
+      currency?: string;
+      description?: string;
+      rawPayload?: Record<string, unknown>;
+    }>;
+  },
+) {
+  const { data: importJob, error: importJobError } = await admin
+    .from("finance_import_jobs")
+    .insert({
+      user_id: params.userId,
+      source: params.source,
+      status: "pending_review",
+      file_name: params.fileName ?? null,
+      source_ref: params.sourceRef ?? null,
+    })
+    .select("*")
+    .single();
+
+  if (importJobError) throw importJobError;
+
+  let duplicateCount = 0;
+  let importedCount = 0;
+
+  for (const draft of params.drafts) {
+    const normalized = normalizeDraftTransactionInput({
+      userId: params.userId,
+      source: params.source,
+      transactionDate: draft.transactionDate,
+      merchant: draft.merchant,
+      category: draft.category,
+      amount: draft.amount,
+      currency: draft.currency,
+      description: draft.description,
+      rawPayload: draft.rawPayload,
+    });
+
+    const { error } = await admin.from("finance_draft_transactions").insert({
+      ...normalized,
+      import_job_id: importJob.id,
+    });
+
+    if (error) {
+      const duplicateDetected =
+        "code" in error && typeof error.code === "string" && error.code === "23505";
+      if (duplicateDetected) {
+        duplicateCount += 1;
+        continue;
+      }
+
+      await admin
+        .from("finance_import_jobs")
+        .update({
+          status: "failed",
+          error_message: error.message,
+          imported_count: importedCount,
+          duplicate_count: duplicateCount,
+        })
+        .eq("id", importJob.id);
+      throw error;
+    }
+
+    importedCount += 1;
+  }
+
+  const finalStatus = importedCount > 0 ? "pending_review" : "processed";
+  const { error: finalizeError } = await admin
+    .from("finance_import_jobs")
+    .update({
+      status: finalStatus,
+      imported_count: importedCount,
+      duplicate_count: duplicateCount,
+      error_message:
+        importedCount === 0 && duplicateCount > 0
+          ? "Every imported row matched an existing draft or approved transaction."
+          : null,
+    })
+    .eq("id", importJob.id);
+
+  if (finalizeError) throw finalizeError;
+
+  return {
+    importJobId: importJob.id,
+    importedCount,
+    duplicateCount,
+  };
+}
+
+export async function importCsvTransactions(
+  userId: string,
+  csvText: string,
+  fileName: string | null = null,
+) {
+  const admin = createAdminClient();
+  const rows = parseCsvRows(csvText);
+  if (rows.length < 2) {
+    throw new Error("The CSV file does not contain enough rows to import.");
+  }
+
+  const headers = rows[0].map((header) => header.toLowerCase().trim());
+  const dataRows = rows.slice(1);
+  const dateIndex = headers.findIndex((header) => /date/.test(header));
+  const merchantIndex = headers.findIndex((header) => /merchant|vendor|payee|store|name/.test(header));
+  const amountIndex = headers.findIndex((header) => /amount|total|debit|value/.test(header));
+  const categoryIndex = headers.findIndex((header) => /category/.test(header));
+  const descriptionIndex = headers.findIndex((header) => /description|memo|note/.test(header));
+
+  if (dateIndex < 0 || merchantIndex < 0 || amountIndex < 0) {
+    throw new Error("CSV must include date, merchant, and amount columns.");
+  }
+
+  const drafts = dataRows
+    .map((cells) => ({
+      transactionDate: parseDateInput(cells[dateIndex], toIsoDate(new Date())),
+      merchant: parseString(cells[merchantIndex], "Imported transaction"),
+      category: categoryIndex >= 0 ? normalizeCategory(cells[categoryIndex]) : undefined,
+      amount: Math.abs(parseNumber(cells[amountIndex])),
+      description:
+        descriptionIndex >= 0
+          ? parseString(cells[descriptionIndex], parseString(cells[merchantIndex]))
+          : parseString(cells[merchantIndex]),
+      rawPayload: {
+        row: cells,
+        headers,
+      },
+    }))
+    .filter((draft) => draft.amount > 0 && draft.merchant);
+
+  if (drafts.length === 0) {
+    throw new Error("No valid transactions were found in that CSV file.");
+  }
+
+  return createDraftTransactions(admin, {
+    userId,
+    source: "csv",
+    fileName,
+    drafts,
+  });
+}
+
+export async function ingestForwardedReceipt(input: {
+  userId: string;
+  sourceRef?: string | null;
+  subject?: string;
+  text?: string;
+  amount?: unknown;
+  merchant?: unknown;
+  transactionDate?: unknown;
+  category?: unknown;
+}) {
+  const admin = createAdminClient();
+  const subject = parseString(input.subject);
+  const text = parseString(input.text);
+  const merchant =
+    parseString(input.merchant) ||
+    subject.replace(/^fwd:\s*/i, "").split(/[-|:]/)[0]?.trim() ||
+    "Forwarded receipt";
+  const amount =
+    parseNumber(input.amount) ||
+    parseNumber(text.match(/(?:total|amount|paid)[^0-9]{0,12}(\d+(?:\.\d{1,2})?)/i)?.[1]);
+  const transactionDate = parseDateInput(
+    input.transactionDate ?? text.match(/\b(\d{4}-\d{2}-\d{2})\b/)?.[1] ?? new Date(),
+    toIsoDate(new Date()),
+  );
+
+  if (!amount || !merchant) {
+    throw new Error("The forwarded receipt did not include enough information to create a draft transaction.");
+  }
+
+  return createDraftTransactions(admin, {
+    userId: input.userId,
+    source: "forwarded_email",
+    sourceRef: input.sourceRef ?? null,
+    drafts: [
+      {
+        transactionDate,
+        merchant,
+        category: normalizeCategory(input.category) || inferCategoryFromMerchant(merchant, text),
+        amount,
+        description: subject || text.slice(0, 120) || merchant,
+        rawPayload: {
+          subject,
+          text,
+          source_ref: input.sourceRef ?? null,
+        },
+      },
+    ],
+  });
+}
+
+export async function reviewDraftTransaction(
+  userId: string,
+  input: {
+    draftId: string;
+    decision: "approve" | "reject" | "edit";
+    updates?: Record<string, unknown>;
+  },
+) {
+  const admin = createAdminClient();
+  const { data: draft, error: draftError } = await admin
+    .from("finance_draft_transactions")
+    .select("*")
+    .eq("id", input.draftId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (draftError) throw draftError;
+  if (!draft) {
+    throw new Error("We could not find that draft transaction.");
+  }
+
+  const updates = input.updates ?? {};
+  const normalized = normalizeDraftTransactionInput({
+    userId,
+    source: draft.source,
+    transactionDate: updates.transaction_date ?? draft.transaction_date,
+    merchant: updates.merchant ?? draft.merchant,
+    category: updates.category ?? draft.category,
+    amount: updates.amount ?? draft.amount,
+    currency: updates.currency ?? draft.currency,
+    description: updates.description ?? draft.description,
+    rawPayload:
+      (typeof updates.raw_payload === "object" && updates.raw_payload !== null
+        ? (updates.raw_payload as Record<string, unknown>)
+        : draft.raw_payload) ?? {},
+  });
+
+  const now = new Date().toISOString();
+  const finalDecision = input.decision === "edit" ? "approve" : input.decision;
+
+  if (finalDecision === "approve") {
+    const { error: insertError } = await admin.from("finance_spending_events").insert({
+      user_id: userId,
+      date: normalized.transaction_date,
+      items: [
+        {
+          category: normalized.category,
+          amount: normalized.amount,
+          description: normalized.description,
+        },
+      ],
+      raw_input: normalized.description,
+      total: normalized.amount,
+      source: draft.source === "csv" ? "csv_import" : "forwarded_email",
+    });
+
+    if (insertError) throw insertError;
+  }
+
+  const { error: updateError } = await admin
+    .from("finance_draft_transactions")
+    .update({
+      ...normalized,
+      status: finalDecision === "approve" ? "approved" : "rejected",
+      reviewed_at: now,
+    })
+    .eq("id", draft.id)
+    .eq("user_id", userId);
+
+  if (updateError) throw updateError;
+
+  if (draft.import_job_id) {
+    await finalizeImportJobStatus(admin, draft.import_job_id, userId);
+  }
+}
+
+export async function generateScheduledSummaries() {
+  const admin = createAdminClient();
+  const { data: profiles, error: profilesError } = await admin
+    .from("finance_profiles")
+    .select("user_id, updates_opt_in, onboarding_completed")
+    .eq("onboarding_completed", true);
+
+  if (profilesError) throw profilesError;
+
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const weekStart = new Date(todayStart);
+  weekStart.setDate(weekStart.getDate() - 6);
+
+  let dailyCreated = 0;
+  let weeklyCreated = 0;
+
+  for (const profile of profiles ?? []) {
+    if (!profile.updates_opt_in) continue;
+
+    const bootstrap = await buildBootstrap(profile.user_id);
+    const [dailySummary, weeklySummary] = bootstrap.summaries ?? [];
+    const candidateSummaries = [
+      {
+        type: "summary_daily",
+        summary: dailySummary,
+        since: todayStart.toISOString(),
+      },
+      {
+        type: "summary_weekly",
+        summary: weeklySummary,
+        since: weekStart.toISOString(),
+      },
+    ];
+
+    for (const candidate of candidateSummaries) {
+      if (!candidate.summary || candidate.summary.status !== "ready") continue;
+
+      const { count, error: countError } = await admin
+        .from("notifications")
+        .select("id", { count: "exact", head: true })
+        .eq("user_id", profile.user_id)
+        .eq("type", candidate.type)
+        .gte("created_at", candidate.since);
+
+      if (countError) throw countError;
+      if ((count ?? 0) > 0) continue;
+
+      const { error: insertError } = await admin.from("notifications").insert({
+        user_id: profile.user_id,
+        type: candidate.type,
+        title: candidate.summary.headline,
+        body: candidate.summary.body,
+      });
+
+      if (insertError) throw insertError;
+
+      if (candidate.type === "summary_daily") dailyCreated += 1;
+      if (candidate.type === "summary_weekly") weeklyCreated += 1;
+    }
+  }
+
+  return {
+    ok: true,
+    daily_created: dailyCreated,
+    weekly_created: weeklyCreated,
+  };
 }
 
 export async function migrateLegacyPublicData(

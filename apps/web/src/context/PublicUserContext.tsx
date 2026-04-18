@@ -15,6 +15,7 @@ import {
   SUPABASE_SETUP_MESSAGE,
 } from "@/integrations/supabase/client";
 import {
+  checkAffordability as requestAffordabilityCheck,
   completeOnboarding,
   deleteBudgetLimit,
   deleteFinancialEntry,
@@ -22,6 +23,9 @@ import {
   deleteSubscription,
   fetchBootstrap,
   getEmptyBootstrap,
+  importCsvTransactions as importWorkspaceCsvTransactions,
+  markNotificationRead as markWorkspaceNotificationRead,
+  reviewDraftTransaction as reviewWorkspaceDraftTransaction,
   saveBudgetLimit,
   saveFinancialEntry,
   saveGoal,
@@ -29,8 +33,10 @@ import {
   updateProfile as updateWorkspaceProfile,
 } from "@/lib/workspaceData";
 import type {
+  AffordabilityResult,
   BootstrapData,
   BudgetLimit,
+  DraftTransaction,
   FinancialEntry,
   OnboardingPayload,
   Subscription,
@@ -91,6 +97,18 @@ type PublicUserContextValue = {
   deleteSubscription: (subscriptionId: string) => Promise<void>;
   saveFinancialEntry: (entry: Partial<FinancialEntry>) => Promise<void>;
   deleteFinancialEntry: (entryId: string) => Promise<void>;
+  checkAffordability: (input: {
+    amount: number;
+    category?: string | null;
+    cadence?: "one_time" | "monthly";
+  }) => Promise<AffordabilityResult>;
+  importCsvTransactions: (csvText: string, fileName: string) => Promise<void>;
+  reviewDraftTransaction: (input: {
+    draftTransactionId: string;
+    decision: "approve" | "reject" | "edit";
+    updates?: Partial<DraftTransaction>;
+  }) => Promise<void>;
+  markNotificationRead: (notificationId: string) => Promise<void>;
 };
 
 const PublicUserContext = createContext<PublicUserContextValue | undefined>(undefined);
@@ -512,6 +530,13 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       saveFinancialEntry: async (entry) => runMutation(() => saveFinancialEntry(entry)),
       deleteFinancialEntry: async (entryId) =>
         runMutation(() => deleteFinancialEntry(entryId)),
+      checkAffordability: async (input) => requestAffordabilityCheck(input),
+      importCsvTransactions: async (csvText, fileName) =>
+        runMutation(() => importWorkspaceCsvTransactions(csvText, fileName)),
+      reviewDraftTransaction: async (input) =>
+        runMutation(() => reviewWorkspaceDraftTransaction(input)),
+      markNotificationRead: async (notificationId) =>
+        runMutation(() => markWorkspaceNotificationRead(notificationId)),
     }),
     [
       authLoading,

@@ -1,263 +1,146 @@
-# EVA - Personal Finance Companion
+# EVA
 
-EVA is a comprehensive personal finance application providing real-time spending tracking, budget management, financial goal tracking, and AI-powered advice. The project includes both web and mobile implementations sharing a unified Supabase backend.
+EVA is a personal-finance copilot with a shared Supabase backend, a public web app, a Flutter mobile app, and a separate support center for end-user help.
 
-## Project Structure
+The product core stays the same across platforms:
 
-```
+`log spending -> see it reflected everywhere -> get grounded advice -> take the next action`
+
+## Monorepo layout
+
+```text
 eva/
 ├── apps/
-│   ├── web/                    # React + TypeScript web application
-│   │   ├── src/               # React components and pages
-│   │   ├── public/            # Static assets
-│   │   ├── package.json       # Web app dependencies
-│   │   ├── vite.config.ts     # Vite configuration
-│   │   └── README.md          # Web app documentation
-│   │
-│   └── mobile/                 # Flutter mobile application
-│       ├── lib/               # Flutter Dart code
-│       ├── android/           # Android-specific code
-│       ├── ios/               # iOS-specific code
-│       ├── web/               # Flutter web (experimental)
-│       ├── pubspec.yaml       # Flutter dependencies
-│       └── MOBILE_README.md   # Mobile app documentation
-│
-├── supabase/                   # Supabase backend (shared)
-│   ├── migrations/            # Database migrations
-│   ├── functions/             # Edge Functions
-│   └── config.toml            # Supabase configuration
-│
-├── docker/                     # Docker configuration for deployments
-├── scripts/                    # Build and deployment scripts
-├── .github/workflows/          # CI/CD pipelines for both apps
-│   ├── ci.yml                 # Web app CI
-│   └── flutter-ci.yml         # Mobile app CI
-│
-└── README.md                   # This file
+│   ├── web/        # Vite + React web app
+│   ├── mobile/     # Flutter mobile app
+│   └── support/    # static help-center source package
+├── supabase/       # shared auth, database, migrations, edge functions
+├── docker/         # container/runtime helpers
+└── .github/        # CI/CD workflows
 ```
 
-## Quick Start
+## Phase status
 
-### Prerequisites
-- **For Web**: Node.js 22+, npm
-- **For Mobile**: Flutter SDK 3.11.4+, Dart
-- **Shared**: Supabase project credentials
+### Phase A / B foundation
 
-### Environment Variables
+The web app already includes:
 
-Create a `.env` file in the root directory (web) or `apps/mobile/.env` for mobile:
+- authenticated signup, signin, and email verification
+- onboarding and workspace bootstrap through `finance-core`
+- chat-led spending capture
+- grounded dashboard, budgets, goals, subscriptions, and statements
+- mobile/desktop navigation shell and profile menus
 
-```env
-VITE_SUPABASE_PROJECT_ID=your-project-id
-VITE_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
-VITE_SUPABASE_URL=https://your-project-id.supabase.co
-GROQ_API_KEY=your-groq-api-key (optional)
-TAVILY_API_KEY=your-tavily-api-key (optional)
-```
+### Phase C / D rollout
 
-## Web Application
+The current rollout extends the same canonical `finance-core` into:
 
-Located in `apps/web/` - A Vite + React + TypeScript application with:
-- Real-time dashboard with spending summary
-- Budget tracking and management
-- Financial goals tracking
-- Subscription monitoring
-- AI-powered financial advice
-- Chat-based interface
-- Multi-device support
+- spending pattern summaries
+- month-end cash and spending forecast
+- affordability checks
+- grounded subscription review
+- CSV transaction import into a draft review queue
+- forwarded receipt ingestion into the same review flow
+- scheduled daily and weekly summary notifications
+- direct help-center links to `support.useaima.com`
 
-### Setup & Run
+## Web app
+
+The web app lives in `apps/web/`.
+
+### Local development
 
 ```bash
-# Install dependencies
 cd apps/web
 npm ci
-
-# Development
+npm run validate-env
 npm run dev
-
-# Production build
-npm run build
-
-# Quality checks
-npm run lint
-npm run test
-
-# Docker
-npm run docker:build
-npm run docker:run
 ```
 
-See [apps/web/README.md](apps/web/README.md) for detailed web app documentation.
-
-## Mobile Application
-
-Located in `apps/mobile/` - A Flutter application supporting iOS, Android, and Web with:
-- Native performance on iOS and Android
-- Riverpod state management
-- Supabase integration for real-time sync
-- Onboarding flow
-- Dashboard and financial tracking
-- Budget and goal management
-- Web platform support (experimental)
-
-### Setup & Run
+### Quality checks
 
 ```bash
-# Install dependencies
+cd apps/web
+npm run build
+npm run lint
+npm run test
+npm run ci
+```
+
+### Required environment variables
+
+- `VITE_SUPABASE_PROJECT_ID`
+- `VITE_SUPABASE_PUBLISHABLE_KEY`
+- `VITE_SUPABASE_URL`
+
+Recommended for richer AI/research behavior:
+
+- `GROQ_API_KEY`
+- `TAVILY_API_KEY`
+
+Additional server-side secrets for the Phase C/D rollout:
+
+- `EVA_RECEIPT_INGEST_SECRET`
+- `EVA_SCHEDULED_SUMMARIES_SECRET`
+
+## Mobile app
+
+The Flutter mobile app lives in `apps/mobile/` and shares the same Supabase backend.
+
+Typical setup:
+
+```bash
 cd apps/mobile
 flutter pub get
-
-# Development (runs on default device)
-flutter run
-
-# Release builds
-flutter build apk --release        # Android APK
-flutter build appbundle --release  # Android App Bundle
-flutter build ios --release        # iOS (requires Xcode)
-flutter build web --release        # Web platform
-
-# Testing
-flutter test
-```
-
-See [apps/mobile/MOBILE_README.md](apps/mobile/MOBILE_README.md) for detailed mobile app documentation.
-
-## Backend - Supabase
-
-Both applications connect to a shared Supabase backend providing:
-
-### Authentication
-- Email/password authentication
-- Session management
-- User verification
-
-### Database (Postgres)
-- User profiles and workspace data
-- Financial entries and transactions
-- Budget limits and goals
-- Subscriptions and recurring expenses
-- Advice cards and insights
-
-### Edge Functions
-- **finance-core**: Main API for workspace state, goals, budgets, subscriptions, financial entries
-- **chat**: AI-powered financial advisor
-- **insights**: Financial analysis and recommendations
-- **statements**: Financial statements generation
-
-### Real-time Capabilities
-- Real-time database updates via Supabase client libraries
-- Automatic sync across devices
-
-## Architecture
-
-### Frontend
-- **Web**: Vite + React 18 + TypeScript + Tailwind CSS
-- **Mobile**: Flutter with Riverpod state management
-- Both share authentication and communicate with same Supabase backend
-
-### Backend
-- Supabase Auth for user management
-- Supabase Postgres for canonical finance data
-- Supabase Edge Functions for business logic
-- Gemini for AI orchestration
-
-### Data Flow
-```
-User Input → App → Supabase Edge Functions → Postgres Database
-Database → Real-time Updates → App State → UI
-```
-
-## CI/CD Pipeline
-
-### Web App CI (`.github/workflows/ci.yml`)
-Triggers on: Push to main/develop, PRs, manual dispatch
-Steps:
-1. Checkout code
-2. Setup Node.js v22
-3. Install dependencies
-4. Validate environment
-5. Build
-6. Lint
-7. Test
-
-### Mobile App CI (`.github/workflows/flutter-ci.yml`)
-Triggers on: Changes to `mobile/` or `supabase/`
-Steps:
-1. Flutter analysis and linting
-2. Run tests
-3. Build Android APK
-4. Build Flutter Web
-5. Build iOS (on macOS)
-6. Upload artifacts
-
-### Deployment
-- **Web**: Deployed to Vercel (automatic from main branch)
-- **Mobile**: Artifacts available from GitHub Actions (APK, App Bundle)
-
-## Development
-
-### Running Both Apps Locally
-
-```bash
-# Terminal 1: Run web app
-cd apps/web
-npm run dev
-
-# Terminal 2: Run mobile app (on connected device/emulator)
-cd apps/mobile
 flutter run
 ```
 
-### Database Access
+## Support center
 
-```bash
-# Using Supabase CLI
-supabase start
+`apps/support/` is the static help-center source package for the separate `aima-support` repo and deployment at `support.useaima.com`.
 
-# View logs
-supabase functions list
-supabase functions logs finance-core
-```
+It includes:
 
-### Code Quality
+- article-driven help content in `data.json`
+- client-side article routing for `/articles/<article-id>`
+- static Vercel rewrite support via `vercel.json`
 
-```bash
-# Web app
-cd apps/web
-npm run lint
-npm run test
+## Backend
 
-# Mobile app
-cd apps/mobile
-flutter analyze
-flutter test
-```
+Both apps connect to the shared Supabase backend in `supabase/`.
 
-## Testing
+Key edge functions:
 
-### Web App
-```bash
-npm run test           # Run tests
-npm run test:ui        # Test UI
-```
+- `finance-core`
+- `chat`
+- `generate-insights`
+- `generate-statement`
+- `receipt-ingress`
+- `scheduled-summaries`
 
-### Mobile App
-```bash
-flutter test           # Run unit tests
-```
+Shared data stays canonical in Postgres and is exposed through the authenticated workspace bootstrap rather than page-specific truth.
 
-### Integration Testing
-Use the provided Playwright configuration for end-to-end testing of the web app:
-```bash
-cd apps/web
-npm run test:e2e
-```
+## CI/CD
 
-## Deployment
+GitHub Actions covers:
 
-### Web App
-Automatically deployed to Vercel on push to main branch.
+- web build/lint/test
+- Flutter mobile checks and builds
+- deployment workflows tied to the org repo
+
+The web app deploys through Vercel from the monorepo, and the support center is intended to deploy through the existing `aima-support` Vercel project.
+
+## Product principles
+
+- personal finance first
+- grounded advice over generic AI output
+- trust before power
+- chat first, structured views second
+- managed infrastructure first, Kubernetes later
+
+## Disclaimer
+
+EVA provides informational financial guidance and coaching-style product assistance. It does not provide legal, tax, or professional investment advice.
 Manual deployment:
 ```bash
 cd apps/web

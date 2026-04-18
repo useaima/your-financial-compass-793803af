@@ -69,6 +69,7 @@ export default function Subscriptions() {
   const [analyzing, setAnalyzing] = useState(false);
 
   const subscriptions = bootstrap.subscriptions;
+  const subscriptionReview = bootstrap.subscription_review;
 
   const handleSubmit = async () => {
     if (!formData.name.trim() || !formData.price) return;
@@ -246,11 +247,58 @@ export default function Subscriptions() {
         </motion.div>
       )}
 
+      {subscriptionReview && subscriptions.length > 0 && (
+        <motion.div
+          custom={4}
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+          className="space-y-4 rounded-xl border border-border bg-card p-5"
+        >
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-sm font-semibold">Grounded subscription review</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{subscriptionReview.summary}</p>
+            </div>
+            <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-semibold text-primary">
+              {subscriptionReview.flagged_count} flagged
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {subscriptionReview.recommendations.map((recommendation) => (
+              <div
+                key={recommendation.id}
+                className={cn(
+                  "rounded-xl border p-3",
+                  recommendation.action === "cancel"
+                    ? "border-destructive/20 bg-destructive/5"
+                    : recommendation.action === "review"
+                      ? "border-[hsl(var(--chart-5)/0.26)] bg-[hsl(var(--chart-5)/0.08)]"
+                      : "border-primary/20 bg-primary/5",
+                )}
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold text-foreground">{recommendation.name}</p>
+                  <span className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                    {recommendation.action}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted-foreground">{recommendation.reason}</p>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  Monthly impact {formatCurrency(recommendation.monthly_impact)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </motion.div>
+      )}
+
       {subscriptions.length >= 2 && (
-        <motion.div custom={4} initial="hidden" animate="visible" variants={fadeUp}>
+        <motion.div custom={5} initial="hidden" animate="visible" variants={fadeUp}>
           <Button onClick={runAnalysis} disabled={analyzing} className="w-full gap-2">
             <Sparkles className="h-4 w-4" />
-            {analyzing ? "Analyzing..." : "Run AI Analysis"}
+            {analyzing ? "Analyzing..." : "Run deeper AI analysis"}
           </Button>
         </motion.div>
       )}
