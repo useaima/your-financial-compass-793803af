@@ -630,7 +630,7 @@ export default function Settings() {
                 {memberSince ? `Since ${memberSince}` : "New eva member"}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                Account security and session control are handled with Supabase Auth.
+                Account security and session control are handled with Firebase Auth.
               </p>
             </div>
           </div>

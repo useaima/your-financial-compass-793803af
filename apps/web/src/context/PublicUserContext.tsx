@@ -8,9 +8,19 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { Session, User } from "@supabase/supabase-js";
 import {
-  supabase,
+  createUserWithEmailAndPassword,
+  onIdTokenChanged,
+  sendEmailVerification,
+  sendPasswordResetEmail,
+  signInWithEmailAndPassword,
+  signOut as firebaseSignOut,
+  updatePassword,
+  updateProfile as updateFirebaseProfile,
+  type User,
+} from "firebase/auth";
+import {
+  firebaseAuth,
   hasSupabaseConfig,
   SUPABASE_SETUP_MESSAGE,
 } from "@/integrations/supabase/client";
@@ -46,13 +56,13 @@ import type {
 import { handleAppError, normalizeAppError } from "@/lib/appErrors";
 import { getStoredPublicUserId } from "@/lib/publicUser";
 import {
+  clearSignupSeed,
   type AuthProfileSeed,
   getAuthErrorMessage,
   getAuthProfileSeed,
-  hasPasswordSetup,
-  splitFullName,
+  persistSignupSeed,
 } from "@/lib/authProfile";
-import { resolveTrustedSession } from "@/lib/authSession";
+import { resolveTrustedSession, type AuthSession } from "@/lib/authSession";
 
 type SignUpPayload = {
   full_name: string;
@@ -68,7 +78,7 @@ type SignUpResult = {
 };
 
 type PublicUserContextValue = {
-  session: Session | null;
+  session: AuthSession | null;
   user: User | null;
   userId: string;
   legacyPublicUserId: string;
@@ -83,7 +93,8 @@ type PublicUserContextValue = {
   signUpWithPassword: (payload: SignUpPayload) => Promise<SignUpResult>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<void>;
-  sendLegacyMagicLink: (email: string) => Promise<void>;
+  sendPasswordReset: (email: string) => Promise<void>;
+  refreshAuthUser: () => Promise<boolean>;
   completeLegacyPasswordSetup: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
@@ -149,12 +160,17 @@ function clearCachedBootstrap() {
 }
 
 function getAuthRedirectTo() {
-  return typeof window === "undefined" ? undefined : `${window.location.origin}/auth`;
+  return typeof window === "undefined" ? undefined : `${window.location.origin}/auth?mode=signin`;
+}
+
+function getActionCodeSettings() {
+  const redirect = getAuthRedirectTo();
+  return redirect ? { url: redirect, handleCodeInApp: false } : undefined;
 }
 
 export function PublicUserProvider({ children }: { children: ReactNode }) {
   const legacyPublicUserId = useMemo(() => getStoredPublicUserId(), []);
-  const [session, setSession] = useState<Session | null>(null);
+  const [session, setSession] = useState<AuthSession | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [bootstrap, setBootstrap] = useState<BootstrapData>(getEmptyBootstrap());
@@ -164,10 +180,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   const authResolutionId = useRef(0);
 
   const authProfileSeed = useMemo(() => getAuthProfileSeed(user), [user]);
-  const requiresPasswordSetup = useMemo(
-    () => Boolean(user) && !hasPasswordSetup(user, bootstrap.profile),
-    [bootstrap.profile, user],
-  );
+  const requiresPasswordSetup = false;
 
   const applyBootstrap = useCallback((data: BootstrapData) => {
     setBootstrap(data);
@@ -181,17 +194,17 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    const cached = readCachedBootstrap(nextUser.id);
-    setBootstrap(cached ?? getEmptyBootstrap(nextUser.id, nextUser.email ?? null));
+    const cached = readCachedBootstrap(nextUser.uid);
+    setBootstrap(cached ?? getEmptyBootstrap(nextUser.uid, nextUser.email ?? null));
   }, []);
 
   const handleRefreshFailure = useCallback((targetUser: User | null, error: unknown) => {
     if (targetUser) {
-      const cached = readCachedBootstrap(targetUser.id);
+      const cached = readCachedBootstrap(targetUser.uid);
       if (cached) {
         setBootstrap(cached);
       } else {
-        setBootstrap(getEmptyBootstrap(targetUser.id, targetUser.email ?? null));
+        setBootstrap(getEmptyBootstrap(targetUser.uid, targetUser.email ?? null));
       }
     } else {
       setBootstrap(getEmptyBootstrap());
@@ -204,11 +217,11 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     console.warn(message);
   }, []);
 
-  const syncAuthState = useCallback(async (nextSession: Session | null) => {
+  const syncAuthState = useCallback(async (nextUser: User | null) => {
     const resolutionId = authResolutionId.current + 1;
     authResolutionId.current = resolutionId;
 
-    if (!nextSession) {
+    if (!nextUser) {
       setSession(null);
       setUser(null);
       setAuthLoading(false);
@@ -218,30 +231,24 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     setAuthLoading(true);
 
     try {
-      const trusted = await resolveTrustedSession(nextSession, {
+      const trusted = await resolveTrustedSession(nextUser, {
         attempts: 3,
-        waitMs: 1500,
+        waitMs: 800,
       });
 
       if (authResolutionId.current !== resolutionId) {
         return;
       }
 
-      if (!trusted.session || !trusted.user) {
-        setSession(nextSession);
-        setUser(nextSession.user ?? null);
-        return;
-      }
-
       setSession(trusted.session);
-      setUser(trusted.user);
+      setUser(trusted.user ?? nextUser);
     } catch {
       if (authResolutionId.current !== resolutionId) {
         return;
       }
 
-      setSession(nextSession);
-      setUser(nextSession.user ?? null);
+      setSession(null);
+      setUser(nextUser);
     } finally {
       if (authResolutionId.current === resolutionId) {
         setAuthLoading(false);
@@ -253,6 +260,12 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     async (activeUser: User | null) => {
       if (!activeUser) {
         resetWorkspace(null);
+        setWorkspaceLoading(false);
+        return;
+      }
+
+      if (!activeUser.emailVerified) {
+        resetWorkspace(activeUser);
         setWorkspaceLoading(false);
         return;
       }
@@ -271,27 +284,20 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
-    let isMounted = true;
+    if (!firebaseAuth) {
+      setAuthLoading(false);
+      setWorkspaceLoading(false);
+      return;
+    }
 
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => {
-        if (!isMounted) {
-          return;
-        }
+    void syncAuthState(firebaseAuth.currentUser);
 
-        return syncAuthState(data.session ?? null);
-      });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      void syncAuthState(nextSession ?? null);
+    const unsubscribe = onIdTokenChanged(firebaseAuth, (nextUser) => {
+      void syncAuthState(nextUser);
     });
 
     return () => {
-      isMounted = false;
-      subscription.unsubscribe();
+      unsubscribe();
     };
   }, [syncAuthState]);
 
@@ -305,7 +311,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   }, [authLoading, initialize, resetWorkspace, user]);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    if (!user?.emailVerified) {
       return;
     }
 
@@ -322,8 +328,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
 
   const runMutation = useCallback(
     async (callback: () => Promise<BootstrapData>) => {
-      if (!user) {
-        throw new Error("Sign in to continue.");
+      if (!user?.emailVerified) {
+        throw new Error("Sign in and verify your email to continue.");
       }
 
       setSaving(true);
@@ -350,70 +356,93 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       password,
       updates_opt_in,
     }: SignUpPayload): Promise<SignUpResult> => {
-      if (!hasSupabaseConfig) {
+      if (!hasSupabaseConfig || !firebaseAuth) {
         throw new Error(SUPABASE_SETUP_MESSAGE);
       }
 
-      const { first_name, last_name } = splitFullName(full_name);
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: getAuthRedirectTo(),
-          data: {
-            full_name: full_name.trim(),
-            first_name,
-            last_name,
-            country: country.trim(),
-            phone_number: phone_number.trim(),
-            updates_opt_in,
-            password_setup_completed: true,
-          },
-        },
-      });
+      try {
+        const normalizedEmail = email.trim().toLowerCase();
+        const trimmedName = full_name.trim();
+        const credential = await createUserWithEmailAndPassword(
+          firebaseAuth,
+          normalizedEmail,
+          password,
+        );
 
-      if (error) {
+        if (trimmedName) {
+          await updateFirebaseProfile(credential.user, {
+            displayName: trimmedName,
+          });
+        }
+
+        persistSignupSeed(credential.user.uid, {
+          country: country.trim() || "United States",
+          phone_number: phone_number.trim(),
+          updates_opt_in,
+          password_setup_completed: true,
+        });
+
+        await sendEmailVerification(credential.user, getActionCodeSettings());
+        await syncAuthState(firebaseAuth.currentUser ?? credential.user);
+
+        return {
+          requiresEmailVerification: true,
+        };
+      } catch (error) {
         throw new Error(
           getAuthErrorMessage(error, "We could not create your account. Please try again."),
         );
       }
-
-      return {
-        requiresEmailVerification: !data.session,
-      };
     },
-    [],
+    [syncAuthState],
   );
 
-  const signInWithPassword = useCallback(async (email: string, password: string) => {
-    if (!hasSupabaseConfig) {
-      throw new Error(SUPABASE_SETUP_MESSAGE);
-    }
+  const signInWithPassword = useCallback(
+    async (email: string, password: string) => {
+      if (!hasSupabaseConfig || !firebaseAuth) {
+        throw new Error(SUPABASE_SETUP_MESSAGE);
+      }
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+      try {
+        const credential = await signInWithEmailAndPassword(
+          firebaseAuth,
+          email.trim().toLowerCase(),
+          password,
+        );
+        await syncAuthState(credential.user);
 
-    if (error) {
-      throw new Error(getAuthErrorMessage(error, "We could not sign you in. Please try again."));
-    }
-  }, []);
+        if (!credential.user.emailVerified) {
+          const verificationError = new Error(
+            "Verify your email before signing in. You can resend the verification email below.",
+          ) as Error & { code?: string };
+          verificationError.code = "email_not_confirmed";
+          throw verificationError;
+        }
+      } catch (error) {
+        throw new Error(getAuthErrorMessage(error, "We could not sign you in. Please try again."));
+      }
+    },
+    [syncAuthState],
+  );
 
   const resendVerificationEmail = useCallback(async (email: string) => {
-    if (!hasSupabaseConfig) {
+    if (!hasSupabaseConfig || !firebaseAuth) {
       throw new Error(SUPABASE_SETUP_MESSAGE);
     }
 
-    const { error } = await supabase.auth.resend({
-      email,
-      type: "signup",
-      options: {
-        emailRedirectTo: getAuthRedirectTo(),
-      },
-    });
+    const activeUser = firebaseAuth.currentUser;
+    if (!activeUser) {
+      throw new Error("Sign in first so eva can resend the verification email.");
+    }
 
-    if (error) {
+    if ((activeUser.email ?? "").trim().toLowerCase() !== email.trim().toLowerCase()) {
+      throw new Error("Sign in with that email first, then resend the verification email.");
+    }
+
+    try {
+      await sendEmailVerification(activeUser, getActionCodeSettings());
+      await syncAuthState(activeUser);
+    } catch (error) {
       throw new Error(
         getAuthErrorMessage(
           error,
@@ -421,77 +450,85 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
         ),
       );
     }
-  }, []);
+  }, [syncAuthState]);
 
-  const sendLegacyMagicLink = useCallback(async (email: string) => {
-    if (!hasSupabaseConfig) {
+  const sendPasswordReset = useCallback(async (email: string) => {
+    if (!hasSupabaseConfig || !firebaseAuth) {
       throw new Error(SUPABASE_SETUP_MESSAGE);
     }
 
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: {
-        emailRedirectTo: getAuthRedirectTo(),
-        shouldCreateUser: false,
-      },
-    });
-
-    if (error) {
+    try {
+      await sendPasswordResetEmail(firebaseAuth, email.trim().toLowerCase(), getActionCodeSettings());
+    } catch (error) {
       throw new Error(
-        getAuthErrorMessage(error, "We could not send the magic link. Please try again."),
+        getAuthErrorMessage(error, "We could not send the password reset email right now."),
       );
     }
   }, []);
 
+  const refreshAuthUser = useCallback(async () => {
+    if (!firebaseAuth?.currentUser) {
+      return false;
+    }
+
+    await firebaseAuth.currentUser.reload();
+    const refreshedUser = firebaseAuth.currentUser;
+    await syncAuthState(refreshedUser);
+    return Boolean(refreshedUser?.emailVerified);
+  }, [syncAuthState]);
+
   const completeLegacyPasswordSetup = useCallback(
     async (password: string) => {
-      if (!user) {
+      if (!firebaseAuth?.currentUser) {
         throw new Error("Sign in to continue.");
       }
 
-      const { error: authError } = await supabase.auth.updateUser({
-        password,
-        data: {
-          ...(user.user_metadata ?? {}),
-          password_setup_completed: true,
-        },
-      });
-
-      if (authError) {
+      try {
+        await updatePassword(firebaseAuth.currentUser, password);
+      } catch (error) {
         throw new Error(
           getAuthErrorMessage(
-            authError,
+            error,
             "We could not finish setting your password. Please try again.",
           ),
         );
       }
 
-      await runMutation(() =>
-        updateWorkspaceProfile({
-          first_name: bootstrap.profile?.first_name || authProfileSeed.first_name,
-          last_name: bootstrap.profile?.last_name || authProfileSeed.last_name,
-          country: bootstrap.profile?.country || authProfileSeed.country,
-          phone_number: bootstrap.profile?.phone_number || authProfileSeed.phone_number,
-          updates_opt_in:
-            bootstrap.profile?.updates_opt_in ?? authProfileSeed.updates_opt_in,
-          user_type:
-            bootstrap.profile?.user_type === "business" ? "business" : "personal",
-          password_setup_completed: true,
-        }),
-      );
+      persistSignupSeed(firebaseAuth.currentUser.uid, {
+        country: bootstrap.profile?.country || authProfileSeed.country,
+        phone_number: bootstrap.profile?.phone_number || authProfileSeed.phone_number,
+        updates_opt_in: bootstrap.profile?.updates_opt_in ?? authProfileSeed.updates_opt_in,
+        password_setup_completed: true,
+      });
+
+      if (firebaseAuth.currentUser.emailVerified && user?.emailVerified) {
+        await runMutation(() =>
+          updateWorkspaceProfile({
+            first_name: bootstrap.profile?.first_name || authProfileSeed.first_name,
+            last_name: bootstrap.profile?.last_name || authProfileSeed.last_name,
+            country: bootstrap.profile?.country || authProfileSeed.country,
+            phone_number: bootstrap.profile?.phone_number || authProfileSeed.phone_number,
+            updates_opt_in:
+              bootstrap.profile?.updates_opt_in ?? authProfileSeed.updates_opt_in,
+            user_type:
+              bootstrap.profile?.user_type === "business" ? "business" : "personal",
+            password_setup_completed: true,
+          }),
+        );
+      }
     },
     [authProfileSeed, bootstrap.profile, runMutation, user],
   );
 
   const signOut = useCallback(async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw normalizeAppError(error, "We could not sign you out. Please try again.");
+    if (firebaseAuth) {
+      await firebaseSignOut(firebaseAuth);
     }
 
+    clearSignupSeed(user?.uid);
     clearCachedBootstrap();
     setBootstrap(getEmptyBootstrap());
-  }, []);
+  }, [user?.uid]);
 
   const loading = authLoading || workspaceLoading;
 
@@ -499,9 +536,9 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     () => ({
       session,
       user,
-      userId: user?.id ?? "",
+      userId: user?.uid ?? "",
       legacyPublicUserId,
-      isAuthenticated: Boolean(user),
+      isAuthenticated: Boolean(user?.emailVerified),
       authLoading,
       authProfileSeed,
       requiresPasswordSetup,
@@ -512,7 +549,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       signUpWithPassword,
       signInWithPassword,
       resendVerificationEmail,
-      sendLegacyMagicLink,
+      sendPasswordReset,
+      refreshAuthUser,
       completeLegacyPasswordSetup,
       signOut,
       refresh,
@@ -545,12 +583,13 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       legacyPublicUserId,
       loading,
       refresh,
+      refreshAuthUser,
       refreshing,
       resendVerificationEmail,
       requiresPasswordSetup,
       runMutation,
       saving,
-      sendLegacyMagicLink,
+      sendPasswordReset,
       session,
       signInWithPassword,
       signOut,

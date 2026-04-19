@@ -1,148 +1,62 @@
-import type { Session, User } from "@supabase/supabase-js";
-import { hasSupabaseConfig, supabase } from "@/integrations/supabase/client";
+import type { User } from "firebase/auth";
+import { firebaseAuth } from "@/integrations/supabase/client";
+
+export type AuthSession = {
+  access_token: string;
+  user: User;
+};
 
 type TrustedSessionResult = {
-  session: Session | null;
+  session: AuthSession | null;
   user: User | null;
 };
 
-function isUnsupportedJwtAlgorithmError(error: unknown) {
-  return error instanceof Error && /unsupported jwt algorithm/i.test(error.message);
+async function wait(ms: number) {
+  await new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function getSessionFallback(session: Session | null): TrustedSessionResult {
-  if (!session?.access_token || !session.user) {
+async function buildSession(user: User | null): Promise<TrustedSessionResult> {
+  if (!user) {
     return { session: null, user: null };
   }
 
+  try {
+    await user.reload();
+  } catch {
+    // Keep going with the cached auth user if reload fails.
+  }
+
+  const activeUser = firebaseAuth?.currentUser ?? user;
+  if (!activeUser) {
+    return { session: null, user: null };
+  }
+
+  const accessToken = await activeUser.getIdToken();
   return {
-    session,
-    user: session.user,
+    session: {
+      access_token: accessToken,
+      user: activeUser,
+    },
+    user: activeUser,
   };
 }
 
-function sleep(ms: number) {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
-function decodeJwtPayload(token: string) {
-  try {
-    const [, payload] = token.split(".");
-    if (!payload) {
-      return null;
-    }
-
-    const normalized = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = normalized.padEnd(normalized.length + ((4 - (normalized.length % 4)) % 4), "=");
-    return JSON.parse(window.atob(padded)) as { iat?: number; exp?: number };
-  } catch {
-    return null;
-  }
-}
-
-async function waitForTokenActivation(accessToken: string) {
-  const payload = decodeJwtPayload(accessToken);
-  const issuedAt = payload?.iat;
-
-  if (!issuedAt) {
-    return;
-  }
-
-  const currentTime = Math.floor(Date.now() / 1000);
-  const delaySeconds = issuedAt - currentTime;
-
-  if (delaySeconds > 0) {
-    await sleep((delaySeconds + 1) * 1000);
-  }
-}
-
-async function validateSession(session: Session | null): Promise<TrustedSessionResult> {
-  if (!session?.access_token) {
-    return { session: null, user: null };
-  }
-
-  await waitForTokenActivation(session.access_token);
-
-  try {
-    const { data, error } = await supabase.auth.getUser(session.access_token);
-    if (error || !data.user) {
-      return { session: null, user: null };
-    }
-
-    return {
-      session: {
-        ...session,
-        user: data.user,
-      },
-      user: data.user,
-    };
-  } catch (error) {
-    if (isUnsupportedJwtAlgorithmError(error)) {
-      return getSessionFallback(session);
-    }
-
-    return { session: null, user: null };
-  }
-}
-
-async function refreshTrustedSession(
-  currentSession: Session | null,
-): Promise<TrustedSessionResult> {
-  if (!currentSession?.refresh_token) {
-    return { session: null, user: null };
-  }
-
-  const { data, error } = await supabase.auth.refreshSession({
-    refresh_token: currentSession.refresh_token,
-  });
-
-  if (error || !data.session) {
-    if (isUnsupportedJwtAlgorithmError(error)) {
-      return getSessionFallback(currentSession);
-    }
-
-    return { session: null, user: null };
-  }
-
-  return validateSession(data.session);
-}
-
 export async function resolveTrustedSession(
-  initialSession?: Session | null,
-  {
-    attempts = 3,
-    waitMs = 1200,
-  }: {
-    attempts?: number;
-    waitMs?: number;
-  } = {},
-): Promise<TrustedSessionResult> {
-  if (!hasSupabaseConfig) {
-    return { session: null, user: null };
-  }
-
-  let candidate = initialSession ?? null;
+  initialUser: User | null,
+  options?: { attempts?: number; waitMs?: number },
+) {
+  const attempts = Math.max(1, options?.attempts ?? 1);
+  let candidate = initialUser ?? firebaseAuth?.currentUser ?? null;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    if (!candidate) {
-      const { data } = await supabase.auth.getSession();
-      candidate = data.session ?? null;
-    }
-
-    const trusted = await validateSession(candidate);
+    const trusted = await buildSession(candidate);
     if (trusted.session && trusted.user) {
       return trusted;
     }
 
-    const refreshed = await refreshTrustedSession(candidate);
-    if (refreshed.session && refreshed.user) {
-      return refreshed;
-    }
-
-    candidate = null;
-
     if (attempt < attempts - 1) {
-      await sleep(waitMs);
+      await wait(options?.waitMs ?? 800);
+      candidate = firebaseAuth?.currentUser ?? null;
     }
   }
 
@@ -150,18 +64,14 @@ export async function resolveTrustedSession(
 }
 
 export async function getTrustedAccessToken(options?: {
-  initialSession?: Session | null;
+  initialUser?: User | null;
   attempts?: number;
   waitMs?: number;
 }) {
-  const trusted = await resolveTrustedSession(options?.initialSession, {
-    attempts: options?.attempts,
-    waitMs: options?.waitMs,
+  const trusted = await resolveTrustedSession(options?.initialUser ?? null, {
+    attempts: options?.attempts ?? 1,
+    waitMs: options?.waitMs ?? 800,
   });
 
-  return (
-    trusted.session?.access_token ??
-    options?.initialSession?.access_token ??
-    null
-  );
+  return trusted.session?.access_token ?? null;
 }

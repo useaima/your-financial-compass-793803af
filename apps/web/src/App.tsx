@@ -82,11 +82,16 @@ const AppPage = ({ children }: { children: React.ReactNode }) => (
 );
 
 function ProtectedPage({ children }: { children: React.ReactNode }) {
-  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup } = usePublicUser();
+  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup, user } = usePublicUser();
   const location = useLocation();
 
   if (loading) {
     return <FullPageLoading />;
+  }
+
+  if (user && !user.emailVerified) {
+    const email = user.email ? `&email=${encodeURIComponent(user.email)}` : "";
+    return <Navigate to={`/auth?mode=verify-email&flow=signup${email}`} replace state={{ from: location.pathname }} />;
   }
 
   if (!isAuthenticated) {
@@ -105,10 +110,15 @@ function ProtectedPage({ children }: { children: React.ReactNode }) {
 }
 
 function OnboardingPage() {
-  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup } = usePublicUser();
+  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup, user } = usePublicUser();
 
   if (loading) {
     return <FullPageLoading />;
+  }
+
+  if (user && !user.emailVerified) {
+    const email = user.email ? `&email=${encodeURIComponent(user.email)}` : "";
+    return <Navigate to={`/auth?mode=verify-email&flow=signup${email}`} replace />;
   }
 
   if (!isAuthenticated) {
@@ -131,10 +141,18 @@ function OnboardingPage() {
 }
 
 function AuthPage() {
-  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup } = usePublicUser();
+  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup, user } = usePublicUser();
 
   if (loading) {
     return <FullPageLoading />;
+  }
+
+  if (user && !user.emailVerified) {
+    return (
+      <RouteSuspense>
+        <Auth forcedMode="verify-email" />
+      </RouteSuspense>
+    );
   }
 
   if (isAuthenticated) {

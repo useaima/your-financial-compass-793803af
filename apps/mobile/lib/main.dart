@@ -1,17 +1,16 @@
+import 'package:eva_app/app.dart';
+import 'package:eva_app/firebase_options.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:eva_app/app.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   await dotenv.load(fileName: ".env");
-
-  await Supabase.initialize(
-    url: dotenv.env['VITE_SUPABASE_URL'] ?? '',
-    anonKey: dotenv.env['VITE_SUPABASE_PUBLISHABLE_KEY'] ?? '',
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
   );
 
   runApp(
@@ -20,5 +19,3 @@ void main() async {
     ),
   );
 }
-
-

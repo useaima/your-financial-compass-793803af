@@ -1,4 +1,4 @@
-import { supabase } from "@/integrations/supabase/client";
+import { firebaseAuth, getFirebaseFunctionUrl } from "@/integrations/supabase/client";
 import { ensureOnline, normalizeAppError } from "@/lib/appErrors";
 import { getTrustedAccessToken } from "@/lib/authSession";
 
@@ -6,12 +6,6 @@ type EdgeFunctionErrorPayload = {
   error?: string;
   message?: string;
 };
-
-const FUNCTIONS_BASE_URL = import.meta.env.VITE_SUPABASE_URL
-  ? `${import.meta.env.VITE_SUPABASE_URL}/functions/v1`
-  : "";
-
-const FUNCTIONS_API_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? "";
 
 async function getAccessToken({
   waitForSession = false,
@@ -23,12 +17,11 @@ async function getAccessToken({
   const attempts = waitForSession ? 4 : 1;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const sessionResult = await supabase.auth.getSession();
-    const currentSession = sessionResult.data.session ?? null;
+    const currentUser = firebaseAuth?.currentUser ?? null;
 
-    if (currentSession) {
+    if (currentUser) {
       const trustedToken = await getTrustedAccessToken({
-        initialSession: currentSession,
+        initialUser: currentUser,
         attempts: allowRefresh ? 2 : 1,
         waitMs: 1400,
       });
@@ -37,7 +30,7 @@ async function getAccessToken({
         return trustedToken;
       }
 
-      return currentSession.access_token;
+      return currentUser.getIdToken();
     }
 
     if (attempt < attempts - 1) {
@@ -55,14 +48,13 @@ async function invokeEdgeFunctionRequest<T>(
 ) {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    apikey: FUNCTIONS_API_KEY,
   };
 
   if (accessToken) {
     headers.Authorization = `Bearer ${accessToken}`;
   }
 
-  const response = await fetch(`${FUNCTIONS_BASE_URL}/${functionName}`, {
+  const response = await fetch(getFirebaseFunctionUrl(functionName), {
     method: "POST",
     headers,
     body: JSON.stringify(body ?? {}),
@@ -97,7 +89,6 @@ export async function invokeEdgeFunction<T>(
     let result = await invokeEdgeFunctionRequest<T>(functionName, body, initialAccessToken);
 
     if (result.response.status === 401) {
-      // Freshly verified email sessions can need one auth-server round trip before function JWT checks pass.
       await new Promise((resolve) => window.setTimeout(resolve, 2500));
       const retryAccessToken = await getAccessToken({
         waitForSession: true,
@@ -111,18 +102,10 @@ export async function invokeEdgeFunction<T>(
     }
 
     if (result.response.status === 401) {
-      const { data, error } = await supabase.auth.refreshSession();
-      if (!error && data.session) {
-        const repairedToken = await getTrustedAccessToken({
-          initialSession: data.session,
-          attempts: 2,
-          waitMs: 1600,
-        });
-        result = await invokeEdgeFunctionRequest<T>(
-          functionName,
-          body,
-          repairedToken ?? data.session.access_token,
-        );
+      const currentUser = firebaseAuth?.currentUser ?? null;
+      if (currentUser) {
+        const repairedToken = await currentUser.getIdToken(true).catch(() => null);
+        result = await invokeEdgeFunctionRequest<T>(functionName, body, repairedToken);
       }
     }
 

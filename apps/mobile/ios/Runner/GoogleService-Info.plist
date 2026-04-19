@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>668184544863-1pb7n3ekdevs3jp32uhf9663hi4ealkl.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.668184544863-1pb7n3ekdevs3jp32uhf9663hi4ealkl</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCocjTgl9jZNFrV3LxPpTS8K8Cs8LRFfMs</string>
+	<key>GCM_SENDER_ID</key>
+	<string>668184544863</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.example.evaFlutterApp</string>
+	<key>PROJECT_ID</key>
+	<string>eva-aima</string>
+	<key>STORAGE_BUCKET</key>
+	<string>eva-aima.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:668184544863:ios:7f6bd8d08ace49acccfdea</string>
+</dict>
+</plist>

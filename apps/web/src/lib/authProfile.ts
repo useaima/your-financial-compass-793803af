@@ -1,4 +1,4 @@
-import type { User } from "@supabase/supabase-js";
+import type { User } from "firebase/auth";
 import type { UserProfile } from "@/lib/evaContracts";
 
 export type AuthProfileSeed = {
@@ -12,6 +12,12 @@ export type AuthProfileSeed = {
 };
 
 export type PasswordStrengthLevel = "weak" | "medium" | "strong";
+const SIGNUP_SEED_PREFIX = "eva-signup-seed:";
+
+type SignupSeed = Pick<
+  AuthProfileSeed,
+  "country" | "phone_number" | "updates_opt_in" | "password_setup_completed"
+>;
 
 function readString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
@@ -44,25 +50,58 @@ export function splitFullName(fullName: string) {
   };
 }
 
+function readSignupSeed(uid: string | null) {
+  if (typeof window === "undefined" || !uid) {
+    return null;
+  }
+
+  try {
+    const raw = window.localStorage.getItem(`${SIGNUP_SEED_PREFIX}${uid}`);
+    if (!raw) {
+      return null;
+    }
+
+    const parsed = JSON.parse(raw) as Partial<SignupSeed>;
+    return {
+      country: readString(parsed.country) || "United States",
+      phone_number: readString(parsed.phone_number),
+      updates_opt_in: readBoolean(parsed.updates_opt_in, true),
+      password_setup_completed: readBoolean(parsed.password_setup_completed, true),
+    } satisfies SignupSeed;
+  } catch {
+    return null;
+  }
+}
+
+export function persistSignupSeed(uid: string, seed: SignupSeed) {
+  if (typeof window === "undefined" || !uid) {
+    return;
+  }
+
+  window.localStorage.setItem(`${SIGNUP_SEED_PREFIX}${uid}`, JSON.stringify(seed));
+}
+
+export function clearSignupSeed(uid: string | null | undefined) {
+  if (typeof window === "undefined" || !uid) {
+    return;
+  }
+
+  window.localStorage.removeItem(`${SIGNUP_SEED_PREFIX}${uid}`);
+}
+
 export function getAuthProfileSeed(user: User | null): AuthProfileSeed {
-  const metadata = (user?.user_metadata ?? {}) as Record<string, unknown>;
-  const explicitFirstName = readString(metadata.first_name);
-  const explicitLastName = readString(metadata.last_name);
-  const full_name = readString(metadata.full_name);
+  const full_name = readString(user?.displayName);
   const parsedName = full_name ? splitFullName(full_name) : { first_name: "", last_name: "" };
+  const signupSeed = readSignupSeed(user?.uid ?? null);
 
   return {
-    full_name:
-      full_name ||
-      [explicitFirstName || parsedName.first_name, explicitLastName || parsedName.last_name]
-        .filter(Boolean)
-        .join(" "),
-    first_name: explicitFirstName || parsedName.first_name,
-    last_name: explicitLastName || parsedName.last_name,
-    country: readString(metadata.country) || "United States",
-    phone_number: readString(metadata.phone_number),
-    updates_opt_in: readBoolean(metadata.updates_opt_in, true),
-    password_setup_completed: readBoolean(metadata.password_setup_completed),
+    full_name: full_name || [parsedName.first_name, parsedName.last_name].filter(Boolean).join(" "),
+    first_name: parsedName.first_name,
+    last_name: parsedName.last_name,
+    country: signupSeed?.country || "United States",
+    phone_number: signupSeed?.phone_number || "",
+    updates_opt_in: signupSeed?.updates_opt_in ?? true,
+    password_setup_completed: signupSeed?.password_setup_completed ?? true,
   };
 }
 
@@ -106,12 +145,26 @@ export function getAuthErrorMessage(error: unknown, fallback: string) {
     return "Verify your email before signing in. You can resend the verification email below.";
   }
 
-  if (code === "email_exists" || code === "user_already_exists") {
-    return "That email already has an eva account. Sign in instead or resend verification if you have not confirmed it yet.";
+  if (
+    code === "email_exists" ||
+    code === "user_already_exists" ||
+    code === "auth/email-already-in-use"
+  ) {
+    return "That email already has an eva account. Sign in instead or reset your password if you need help getting back in.";
   }
 
-  if (code === "invalid_credentials" || /invalid login credentials/i.test(message)) {
-    return "That email or password did not match. If you just created your account, verify your email first or resend the verification email.";
+  if (
+    code === "invalid_credentials" ||
+    code === "auth/invalid-credential" ||
+    code === "auth/wrong-password" ||
+    code === "auth/user-not-found" ||
+    /invalid login credentials/i.test(message)
+  ) {
+    return "That email or password did not match. If this account was migrated, reset your password first, then sign back in.";
+  }
+
+  if (code === "auth/too-many-requests") {
+    return "Firebase temporarily slowed sign-in attempts for safety. Wait a moment, then try again.";
   }
 
   if (/email rate limit exceeded/i.test(message)) {

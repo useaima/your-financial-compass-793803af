@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "668184544863",
+    "project_id": "eva-aima",
+    "storage_bucket": "eva-aima.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:668184544863:android:4b6a50ec958bcc0bccfdea",
+        "android_client_info": {
+          "package_name": "com.example.eva_flutter_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "668184544863-7a9a38redbl979aatjbhns8782bmv0re.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDVvSofbUq03vOcLOrTG_hSKqz4yTInuJI"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "668184544863-7a9a38redbl979aatjbhns8782bmv0re.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

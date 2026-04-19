@@ -1,26 +1,44 @@
 import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:supabase_flutter/supabase_flutter.dart';
+
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:http/http.dart' as http;
 
 class EdgeFunctionsService {
-  static final _supabase = Supabase.instance.client;
+  static final _auth = FirebaseAuth.instance;
+  static const Map<String, String> _functionMap = {
+    'finance-core': 'financeCore',
+    'chat': 'chat',
+    'generate-insights': 'generateInsights',
+    'generate-statement': 'generateStatement',
+    'receipt-ingress': 'receiptIngress',
+    'scheduled-summaries': 'scheduledSummaries',
+    'stock-recommendations': 'stockRecommendations',
+    'fetch-finance-news': 'fetchFinanceNews',
+  };
 
-  static Future<Map<String, dynamic>> invoke(String functionName, Map<String, dynamic> body) async {
-    final url = '${dotenv.env['VITE_SUPABASE_URL']}/functions/v1/$functionName';
-    final apiKey = dotenv.env['VITE_SUPABASE_PUBLISHABLE_KEY'];
-
-    // Get access token
-    final session = _supabase.auth.currentSession;
-    String? accessToken;
-
-    if (session != null) {
-      accessToken = session.accessToken;
+  static String get _baseUrl {
+    final explicit = dotenv.env['VITE_FIREBASE_FUNCTIONS_BASE_URL'];
+    if (explicit != null && explicit.isNotEmpty) {
+      return explicit;
     }
+
+    final projectId = dotenv.env['VITE_FIREBASE_PROJECT_ID'] ?? '';
+    final region = dotenv.env['VITE_FIREBASE_FUNCTIONS_REGION'] ?? 'us-central1';
+    return 'https://$region-$projectId.cloudfunctions.net';
+  }
+
+  static Future<Map<String, dynamic>> invoke(
+    String functionName,
+    Map<String, dynamic> body,
+  ) async {
+    final mappedName = _functionMap[functionName] ?? functionName;
+    final url = '$_baseUrl/$mappedName';
+    final user = _auth.currentUser;
+    final accessToken = await user?.getIdToken();
 
     final headers = {
       'Content-Type': 'application/json',
-      'apikey': apiKey ?? '',
       if (accessToken != null) 'Authorization': 'Bearer $accessToken',
     };
 
@@ -30,22 +48,17 @@ class EdgeFunctionsService {
       body: jsonEncode(body),
     );
 
-    if (response.statusCode == 401) {
-      // Try to refresh token and retry
-      await Future.delayed(const Duration(seconds: 3));
-      final newSession = _supabase.auth.currentSession;
-      if (newSession != null && newSession.accessToken != accessToken) {
-        final retryHeaders = {
-          ...headers,
-          'Authorization': 'Bearer ${newSession.accessToken}',
-        };
-        final retryResponse = await http.post(
-          Uri.parse(url),
-          headers: retryHeaders,
-          body: jsonEncode(body),
-        );
-        return _handleResponse(retryResponse);
-      }
+    if (response.statusCode == 401 && user != null) {
+      final refreshedToken = await user.getIdToken(true);
+      final retryResponse = await http.post(
+        Uri.parse(url),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $refreshedToken',
+        },
+        body: jsonEncode(body),
+      );
+      return _handleResponse(retryResponse);
     }
 
     return _handleResponse(response);
@@ -58,7 +71,7 @@ class EdgeFunctionsService {
     if (body.isNotEmpty) {
       try {
         parsed = jsonDecode(body) as Map<String, dynamic>;
-      } catch (e) {
+      } catch (_) {
         parsed = null;
       }
     }
@@ -67,7 +80,7 @@ class EdgeFunctionsService {
       final errorMessage = parsed?['error'] ??
           parsed?['message'] ??
           (response.statusCode == 401
-              ? 'Your session was not ready. Please wait a moment and try again.'
+              ? 'Your EVA session is not ready yet. Please sign in again.'
               : 'We could not complete that request right now. Please try again.');
       throw Exception(errorMessage);
     }

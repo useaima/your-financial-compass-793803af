@@ -121,13 +121,18 @@ export default function Auth({ forcedMode }: AuthProps) {
   const {
     authProfileSeed,
     completeLegacyPasswordSetup,
+    refreshAuthUser,
     resendVerificationEmail,
+    sendPasswordReset,
     signInWithPassword,
     signUpWithPassword,
+    user,
   } = usePublicUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [resettingPassword, setResettingPassword] = useState(false);
   const [signInEmail, setSignInEmail] = useState(() => readLastEmail());
   const [signInPassword, setSignInPassword] = useState("");
   const [signUpForm, setSignUpForm] = useState({
@@ -151,7 +156,11 @@ export default function Auth({ forcedMode }: AuthProps) {
   >("idle");
 
   const currentMode = forcedMode ?? getMode(searchParams.get("mode"));
-  const verificationEmail = (searchParams.get("email") ?? readLastEmail()).trim().toLowerCase();
+  const verificationEmail = (
+    searchParams.get("email") ??
+    user?.email ??
+    readLastEmail()
+  ).trim().toLowerCase();
   const verificationFlow = getVerificationFlow(searchParams.get("flow"));
 
   const signInReady = isValidEmail(signInEmail) && signInPassword.trim().length > 0;
@@ -247,6 +256,48 @@ export default function Auth({ forcedMode }: AuthProps) {
       );
     } finally {
       setResending(false);
+    }
+  };
+
+  const handlePasswordReset = async () => {
+    const email = signInEmail.trim().toLowerCase();
+    if (!isValidEmail(email)) {
+      toast.error("Enter your email first so eva can send the password reset email.");
+      return;
+    }
+
+    setResettingPassword(true);
+    try {
+      await sendPasswordReset(email);
+      persistLastEmail(email);
+      toast.success("Password reset email sent.");
+    } catch (error) {
+      toast.error(
+        getAuthErrorMessage(
+          error,
+          "We could not send the password reset email right now.",
+        ),
+      );
+    } finally {
+      setResettingPassword(false);
+    }
+  };
+
+  const handleVerificationCheck = async () => {
+    setVerifying(true);
+    try {
+      const verified = await refreshAuthUser();
+      if (verified) {
+        toast.success("Email verified. Loading your eva workspace...");
+      } else {
+        toast.error("Your email is not verified yet. Open the latest email and try again.");
+      }
+    } catch (error) {
+      toast.error(
+        getAuthErrorMessage(error, "We could not refresh your verification status right now."),
+      );
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -574,6 +625,16 @@ export default function Auth({ forcedMode }: AuthProps) {
                 {resending ? "Sending verification..." : "Resend verification email"}
               </Button>
 
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full text-muted-foreground"
+                onClick={handlePasswordReset}
+                disabled={!isValidEmail(signInEmail) || resettingPassword}
+              >
+                {resettingPassword ? "Sending reset email..." : "Forgot password?"}
+              </Button>
+
               <p className="text-sm text-muted-foreground">
                 Don&apos;t have an account?{" "}
                 <button
@@ -843,7 +904,7 @@ export default function Auth({ forcedMode }: AuthProps) {
                     <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
                       {verificationFlow === "legacy"
                         ? `Open the email we sent to ${verificationEmail}. Once the link is confirmed on this device, eva will guide you through password setup if needed.`
-                        : `Open the email we sent to ${verificationEmail}. After verification, eva will take you into onboarding or back to your dashboard automatically.`}
+                        : `Open the email we sent to ${verificationEmail}. After verification, tap the button below and eva will take you into onboarding or back to your dashboard automatically.`}
                     </p>
                   </div>
                 </div>
@@ -872,6 +933,16 @@ export default function Auth({ forcedMode }: AuthProps) {
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="flex-1 gap-2"
+                  onClick={handleVerificationCheck}
+                  disabled={verifying}
+                >
+                  {verifying ? "Checking..." : "I've verified my email"}
+                  {!verifying && <CheckCircle2 className="h-4 w-4" />}
+                </Button>
                 <Button type="button" className="flex-1 gap-2" onClick={handleResend} disabled={resending}>
                   {resending ? "Sending again..." : "Resend email"}
                   {!resending && <RefreshCw className="h-4 w-4" />}
@@ -901,6 +972,12 @@ export default function Auth({ forcedMode }: AuthProps) {
                           : "Verification emails should arrive within seconds. If not, use resend and check spam or promotions."}
                 </p>
               )}
+
+              <p className="text-xs text-muted-foreground">
+                {user && !user.emailVerified
+                  ? "This browser is still signed in to your unverified account, so resend and verification refresh will work here."
+                  : "If you verified on another device, sign in again here after confirming the email."}
+              </p>
 
               <p className="text-xs text-muted-foreground">
                 Still stuck?{" "}

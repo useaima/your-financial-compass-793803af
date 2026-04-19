@@ -1,7 +1,7 @@
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class AuthService {
-  static final _supabase = Supabase.instance.client;
+  static final _auth = FirebaseAuth.instance;
 
   static Future<void> signUpWithPassword({
     required String fullName,
@@ -11,54 +11,44 @@ class AuthService {
     required String password,
     required bool updatesOptIn,
   }) async {
-    final names = _splitFullName(fullName);
-
-    final response = await _supabase.auth.signUp(
-      email: email,
+    final credential = await _auth.createUserWithEmailAndPassword(
+      email: email.trim().toLowerCase(),
       password: password,
-      data: {
-        'full_name': fullName.trim(),
-        'first_name': names['first']!,
-        'last_name': names['last']!,
-        'country': country.trim(),
-        'phone_number': phoneNumber.trim(),
-        'updates_opt_in': updatesOptIn,
-        'password_setup_completed': true,
-      },
     );
 
-    if (response.user == null) {
-      throw Exception('Email verification required. Please check your email.');
+    if (credential.user == null) {
+      throw Exception('We could not create your EVA account right now.');
     }
+
+    if (fullName.trim().isNotEmpty) {
+      await credential.user!.updateDisplayName(fullName.trim());
+    }
+
+    await credential.user!.sendEmailVerification();
   }
 
   static Future<void> signInWithPassword(String email, String password) async {
-    final response = await _supabase.auth.signInWithPassword(
-      email: email,
+    final credential = await _auth.signInWithEmailAndPassword(
+      email: email.trim().toLowerCase(),
       password: password,
     );
 
-    if (response.user == null) {
+    if (credential.user == null) {
       throw Exception('Invalid email or password');
+    }
+
+    if (!credential.user!.emailVerified) {
+      throw Exception(
+        'Verify your email before signing in. Check your inbox or use the web app to resend the verification email.',
+      );
     }
   }
 
   static Future<void> signOut() async {
-    await _supabase.auth.signOut();
+    await _auth.signOut();
   }
 
   static Future<bool> requiresPasswordSetup(User user) async {
-    return user.userMetadata?['password_setup_completed'] != true;
-  }
-
-  static Map<String, String> _splitFullName(String fullName) {
-    final parts = fullName.trim().split(' ');
-    if (parts.length == 1) {
-      return {'first': parts[0], 'last': ''};
-    }
-    return {
-      'first': parts.first,
-      'last': parts.sublist(1).join(' '),
-    };
+    return false;
   }
 }

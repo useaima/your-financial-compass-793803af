@@ -6,12 +6,12 @@ on:
       - main
     paths:
       - 'apps/mobile/**'
-      - 'supabase/**'
+      - 'functions/**'
       - '.github/workflows/flutter-ci.yml'
   pull_request:
     paths:
       - 'apps/mobile/**'
-      - 'supabase/**'
+      - 'functions/**'
       - '.github/workflows/flutter-ci.yml'
   workflow_dispatch:
 

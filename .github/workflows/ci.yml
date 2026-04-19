@@ -8,13 +8,44 @@ on:
   workflow_dispatch:
 
 jobs:
+  functions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: functions/package-lock.json
+
+      - name: Install function dependencies
+        run: npm ci
+        working-directory: functions
+
+      - name: Typecheck Firebase functions
+        run: npm run lint
+        working-directory: functions
+
+      - name: Build Firebase functions
+        run: npm run build
+        working-directory: functions
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      VITE_SUPABASE_PROJECT_ID: ci-project-id
-      VITE_SUPABASE_PUBLISHABLE_KEY: ci-publishable-key
-      VITE_SUPABASE_URL: https://ci-project-id.supabase.co
+      VITE_FIREBASE_API_KEY: ci-firebase-api-key
+      VITE_FIREBASE_AUTH_DOMAIN: ci-project-id.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: ci-project-id
+      VITE_FIREBASE_STORAGE_BUCKET: ci-project-id.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: 1234567890
+      VITE_FIREBASE_APP_ID: 1:1234567890:web:ciapp
+      VITE_FIREBASE_MEASUREMENT_ID: G-CIAPP
+      VITE_FIREBASE_FUNCTIONS_REGION: us-central1
       GROQ_API_KEY: ci-groq-key
       TAVILY_API_KEY: ci-tavily-key
     steps:

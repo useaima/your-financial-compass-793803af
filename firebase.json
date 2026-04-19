@@ -1,0 +1,10 @@
+{
+  "functions": {
+    "source": "functions",
+    "codebase": "default"
+  },
+  "firestore": {
+    "rules": "functions/firestore.rules",
+    "indexes": "functions/firestore.indexes.json"
+  }
+}

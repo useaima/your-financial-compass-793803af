@@ -1,19 +1,19 @@
 import 'dart:convert';
 
-import 'package:flutter/material.dart';
-import 'package:hooks_riverpod/hooks_riverpod.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:eva_app/models/bootstrap_data.dart';
 import 'package:eva_app/services/auth_service.dart';
 import 'package:eva_app/services/workspace_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
+import 'package:hooks_riverpod/hooks_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 final publicUserProvider = StateNotifierProvider<PublicUserNotifier, PublicUserState>((ref) {
   return PublicUserNotifier();
 });
 
 class PublicUserState {
-  final Session? session;
+  final String? sessionToken;
   final User? user;
   final String userId;
   final String legacyPublicUserId;
@@ -26,7 +26,7 @@ class PublicUserState {
   final bool saving;
 
   PublicUserState({
-    this.session,
+    this.sessionToken,
     this.user,
     this.userId = '',
     this.legacyPublicUserId = '',
@@ -40,7 +40,7 @@ class PublicUserState {
   });
 
   PublicUserState copyWith({
-    Session? session,
+    String? sessionToken,
     User? user,
     String? userId,
     String? legacyPublicUserId,
@@ -53,7 +53,7 @@ class PublicUserState {
     bool? saving,
   }) {
     return PublicUserState(
-      session: session ?? this.session,
+      sessionToken: sessionToken ?? this.sessionToken,
       user: user ?? this.user,
       userId: userId ?? this.userId,
       legacyPublicUserId: legacyPublicUserId ?? this.legacyPublicUserId,
@@ -76,57 +76,62 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
   }
 
   Future<void> _initialize() async {
-    // Listen to auth state changes
-    Supabase.instance.client.auth.onAuthStateChange.listen((event) {
-      _handleAuthStateChange(event.session);
+    FirebaseAuth.instance.idTokenChanges().listen((user) {
+      _handleAuthStateChange(user);
     });
 
-    // Get initial session
-    final session = Supabase.instance.client.auth.currentSession;
-    await _handleAuthStateChange(session);
+    await _handleAuthStateChange(FirebaseAuth.instance.currentUser);
   }
 
-  Future<void> _handleAuthStateChange(Session? session) async {
-    if (session == null) {
+  Future<void> _handleAuthStateChange(User? user) async {
+    if (user == null) {
       state = PublicUserState();
       await _clearCachedBootstrap();
       return;
     }
 
+    try {
+      await user.reload();
+    } catch (_) {
+      // Keep going with the cached user if reload fails.
+    }
+
+    final activeUser = FirebaseAuth.instance.currentUser ?? user;
+    final token = await activeUser.getIdToken();
+    final isVerified = activeUser.emailVerified;
+
     state = state.copyWith(
-      session: session,
-      user: session.user,
-      userId: session.user.id,
-      isAuthenticated: true,
+      sessionToken: token,
+      user: activeUser,
+      userId: activeUser.uid,
+      isAuthenticated: isVerified,
       authLoading: false,
+      requiresPasswordSetup: false,
     );
 
-    // Check if password setup is required
-    final requiresPasswordSetup = await AuthService.requiresPasswordSetup(session.user);
-    state = state.copyWith(requiresPasswordSetup: requiresPasswordSetup);
-
-    // Load bootstrap data
-    await _loadBootstrap();
+    if (isVerified) {
+      await _loadBootstrap();
+    } else {
+      await _clearCachedBootstrap();
+      state = state.copyWith(bootstrap: null, loading: false);
+    }
   }
 
   Future<void> _loadBootstrap() async {
-    if (state.user == null) return;
+    if (state.user == null || !state.isAuthenticated) return;
 
     state = state.copyWith(loading: true);
 
     try {
-      // Try cached first
       final cached = await _getCachedBootstrap();
       if (cached != null) {
         state = state.copyWith(bootstrap: cached, loading: false);
       }
 
-      // Fetch fresh data
       final bootstrap = await WorkspaceService.fetchBootstrap();
       state = state.copyWith(bootstrap: bootstrap, loading: false);
       await _cacheBootstrap(bootstrap);
     } catch (e) {
-      // If fetch fails, use cached if available
       final cached = await _getCachedBootstrap();
       if (cached != null) {
         state = state.copyWith(bootstrap: cached, loading: false);
@@ -145,7 +150,7 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
         final json = jsonDecode(cached) as Map<String, dynamic>;
         final bootstrap = BootstrapData.fromJson(json);
         return bootstrap.userId == state.userId ? bootstrap : null;
-      } catch (e) {
+      } catch (_) {
         return null;
       }
     }
@@ -162,7 +167,6 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
     await prefs.remove(_bootstrapCacheKey);
   }
 
-  // Auth methods
   Future<void> signUpWithPassword({
     required String fullName,
     required String email,
@@ -195,7 +199,6 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
     await _loadBootstrap();
   }
 
-  // Workspace mutations
   Future<void> completeOnboarding(Map<String, dynamic> payload) async {
     await _runMutation(() async {
       final bootstrap = await WorkspaceService.completeOnboarding(payload);
@@ -268,15 +271,18 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
     });
   }
 
-  Future<void> _runMutation(Future<BootstrapData> Function() operation) async {
-    if (state.user == null) {
-      throw Exception('Sign in to continue.');
+  Future<void> _runMutation(
+    Future<BootstrapData> Function() operation,
+  ) async {
+    if (!state.isAuthenticated) {
+      throw Exception('Sign in and verify your email to continue.');
     }
 
     state = state.copyWith(saving: true);
     try {
       final bootstrap = await operation();
       state = state.copyWith(bootstrap: bootstrap, saving: false);
+      await _cacheBootstrap(bootstrap);
     } catch (e) {
       state = state.copyWith(saving: false);
       rethrow;
