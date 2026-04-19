@@ -1,5 +1,5 @@
 import type { User } from "firebase/auth";
-import { firebaseAuth } from "@/integrations/supabase/client";
+import { firebaseAuth } from "@/integrations/firebase/client";
 
 export type AuthSession = {
   access_token: string;

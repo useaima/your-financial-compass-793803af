@@ -10,7 +10,7 @@ import {
   AlertTriangle,
   Lightbulb,
 } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { FIREBASE_SETUP_MESSAGE, hasFirebaseConfig } from "@/integrations/firebase/client";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -66,8 +66,8 @@ export default function Insights() {
       return;
     }
 
-    if (!hasSupabaseConfig) {
-      toast.error(SUPABASE_SETUP_MESSAGE);
+    if (!hasFirebaseConfig) {
+      toast.error(FIREBASE_SETUP_MESSAGE);
       return;
     }
 

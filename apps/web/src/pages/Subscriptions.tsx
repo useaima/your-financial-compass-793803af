@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { usePublicUser } from "@/context/PublicUserContext";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { FIREBASE_SETUP_MESSAGE, hasFirebaseConfig } from "@/integrations/firebase/client";
 import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { SUBSCRIPTION_CATEGORIES, formatCurrency } from "@/lib/finance";
 import { cn } from "@/lib/utils";
@@ -129,10 +129,10 @@ export default function Subscriptions() {
 
   const runAnalysis = async () => {
     if (subscriptions.length === 0) return;
-    if (!hasSupabaseConfig) {
+    if (!hasFirebaseConfig) {
       toast({
         title: "Analysis unavailable",
-        description: SUPABASE_SETUP_MESSAGE,
+        description: FIREBASE_SETUP_MESSAGE,
         variant: "destructive",
       });
       return;

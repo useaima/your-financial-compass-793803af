@@ -25,8 +25,8 @@ export default defineConfig(({ mode }) => ({
               return "query";
             }
 
-            if (id.includes("@supabase")) {
-              return "supabase";
+            if (id.includes("firebase")) {
+              return "firebase";
             }
 
             if (id.includes("recharts")) {
@@ -206,10 +206,10 @@ export default defineConfig(({ mode }) => ({
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024,
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            urlPattern: /^https:\/\/.*\.cloudfunctions\.net\/.*/i,
             handler: "NetworkFirst",
             options: {
-              cacheName: "supabase-api",
+              cacheName: "firebase-functions",
               expiration: { maxEntries: 50, maxAgeSeconds: 300 },
             },
           },

@@ -2,7 +2,7 @@ import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { Newspaper, Loader2, RefreshCw, ExternalLink, TrendingUp, TrendingDown, Minus } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { FIREBASE_SETUP_MESSAGE, hasFirebaseConfig } from "@/integrations/firebase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -41,8 +41,8 @@ export default function News() {
   const [limitedMessage, setLimitedMessage] = useState("");
 
   const fetchNews = async () => {
-    if (!hasSupabaseConfig) {
-      toast.error(SUPABASE_SETUP_MESSAGE);
+    if (!hasFirebaseConfig) {
+      toast.error(FIREBASE_SETUP_MESSAGE);
       return;
     }
 

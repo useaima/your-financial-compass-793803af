@@ -1,5 +1,5 @@
 import { invokeEdgeFunction } from "@/lib/edgeFunctions";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { FIREBASE_SETUP_MESSAGE, hasFirebaseConfig } from "@/integrations/firebase/client";
 import { EMPTY_DASHBOARD_SUMMARY } from "@/lib/finance";
 import type {
   AffordabilityResult,
@@ -60,11 +60,11 @@ async function invokeWorkspace<T>(
   payload: Record<string, unknown> = {},
   options: WorkspaceOptions = {},
 ) {
-  if (!hasSupabaseConfig) {
+  if (!hasFirebaseConfig) {
     if (action === "bootstrap") {
       return createEmptyBootstrap() as T;
     }
-    throw new Error(SUPABASE_SETUP_MESSAGE);
+    throw new Error(FIREBASE_SETUP_MESSAGE);
   }
 
   return invokeEdgeFunction<T>("finance-core", {

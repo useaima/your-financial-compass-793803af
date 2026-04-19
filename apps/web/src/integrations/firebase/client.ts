@@ -31,7 +31,7 @@ const FIREBASE_FUNCTION_NAME_MAP: Record<string, string> = {
   "fetch-finance-news": "fetchFinanceNews",
 };
 
-export const hasSupabaseConfig = Boolean(
+export const hasFirebaseConfig = Boolean(
   firebaseConfig.apiKey &&
     firebaseConfig.authDomain &&
     firebaseConfig.projectId &&
@@ -40,16 +40,16 @@ export const hasSupabaseConfig = Boolean(
     firebaseConfig.appId,
 );
 
-export const SUPABASE_SETUP_MESSAGE =
+export const FIREBASE_SETUP_MESSAGE =
   "Add the Firebase web environment variables in Vercel to enable live EVA auth, data, and AI features.";
 
-if (!hasSupabaseConfig) {
+if (!hasFirebaseConfig) {
   console.warn(
     "Firebase credentials are missing. The app will load in limited mode until the Vercel env vars are added.",
   );
 }
 
-export const firebaseApp = hasSupabaseConfig
+export const firebaseApp = hasFirebaseConfig
   ? getApps().length > 0
     ? getApp()
     : initializeApp(firebaseConfig)
@@ -65,7 +65,7 @@ if (firebaseAuth) {
 
 export function getFirebaseFunctionUrl(functionName: string) {
   if (!firebaseFunctionsBaseUrl) {
-    throw new Error(SUPABASE_SETUP_MESSAGE);
+    throw new Error(FIREBASE_SETUP_MESSAGE);
   }
 
   return `${firebaseFunctionsBaseUrl}/${FIREBASE_FUNCTION_NAME_MAP[functionName] ?? functionName}`;

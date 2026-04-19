@@ -1,4 +1,4 @@
-import { firebaseAuth, getFirebaseFunctionUrl } from "@/integrations/supabase/client";
+import { firebaseAuth, getFirebaseFunctionUrl } from "@/integrations/firebase/client";
 import { ensureOnline, getDisplayErrorMessage, handleAppError } from "@/lib/appErrors";
 import { getTrustedAccessToken } from "@/lib/authSession";
 

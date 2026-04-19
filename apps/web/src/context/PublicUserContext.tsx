@@ -21,9 +21,9 @@ import {
 } from "firebase/auth";
 import {
   firebaseAuth,
-  hasSupabaseConfig,
-  SUPABASE_SETUP_MESSAGE,
-} from "@/integrations/supabase/client";
+  hasFirebaseConfig,
+  FIREBASE_SETUP_MESSAGE,
+} from "@/integrations/firebase/client";
 import {
   checkAffordability as requestAffordabilityCheck,
   completeOnboarding,
@@ -356,8 +356,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       password,
       updates_opt_in,
     }: SignUpPayload): Promise<SignUpResult> => {
-      if (!hasSupabaseConfig || !firebaseAuth) {
-        throw new Error(SUPABASE_SETUP_MESSAGE);
+      if (!hasFirebaseConfig || !firebaseAuth) {
+        throw new Error(FIREBASE_SETUP_MESSAGE);
       }
 
       try {
@@ -399,8 +399,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
 
   const signInWithPassword = useCallback(
     async (email: string, password: string) => {
-      if (!hasSupabaseConfig || !firebaseAuth) {
-        throw new Error(SUPABASE_SETUP_MESSAGE);
+      if (!hasFirebaseConfig || !firebaseAuth) {
+        throw new Error(FIREBASE_SETUP_MESSAGE);
       }
 
       try {
@@ -426,8 +426,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   );
 
   const resendVerificationEmail = useCallback(async (email: string) => {
-    if (!hasSupabaseConfig || !firebaseAuth) {
-      throw new Error(SUPABASE_SETUP_MESSAGE);
+    if (!hasFirebaseConfig || !firebaseAuth) {
+      throw new Error(FIREBASE_SETUP_MESSAGE);
     }
 
     const activeUser = firebaseAuth.currentUser;
@@ -453,8 +453,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   }, [syncAuthState]);
 
   const sendPasswordReset = useCallback(async (email: string) => {
-    if (!hasSupabaseConfig || !firebaseAuth) {
-      throw new Error(SUPABASE_SETUP_MESSAGE);
+    if (!hasFirebaseConfig || !firebaseAuth) {
+      throw new Error(FIREBASE_SETUP_MESSAGE);
     }
 
     try {

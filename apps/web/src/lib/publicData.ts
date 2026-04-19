@@ -1,5 +1,5 @@
 import { invokeEdgeFunction } from "@/lib/edgeFunctions";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { FIREBASE_SETUP_MESSAGE, hasFirebaseConfig } from "@/integrations/firebase/client";
 import { EMPTY_DASHBOARD_SUMMARY } from "@/lib/finance";
 import { getOrCreatePublicUserId } from "@/lib/publicUser";
 
@@ -203,11 +203,11 @@ function createEmptyBootstrap(publicUserId: string): BootstrapData {
 async function invokePublicData<T>(action: string, payload: Record<string, unknown> = {}) {
   const publicUserId = getOrCreatePublicUserId();
 
-  if (!hasSupabaseConfig) {
+  if (!hasFirebaseConfig) {
     if (action === "bootstrap") {
       return createEmptyBootstrap(publicUserId) as T;
     }
-    throw new Error(SUPABASE_SETUP_MESSAGE);
+    throw new Error(FIREBASE_SETUP_MESSAGE);
   }
 
   return invokeEdgeFunction<T>("public-user-data", {

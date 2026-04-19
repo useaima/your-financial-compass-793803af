@@ -2,7 +2,7 @@ import { invokeEdgeFunction } from "@/lib/edgeFunctions";
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { TrendingUp, Loader2, RefreshCw, ArrowUpRight, ShieldCheck, AlertTriangle, BarChart3, Bookmark } from "lucide-react";
-import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supabase/client";
+import { FIREBASE_SETUP_MESSAGE, hasFirebaseConfig } from "@/integrations/firebase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -79,8 +79,8 @@ export default function StockPicks() {
       .filter((item) => Boolean(item.company));
 
   const fetchRecs = async () => {
-    if (!hasSupabaseConfig) {
-      toast.error(SUPABASE_SETUP_MESSAGE);
+    if (!hasFirebaseConfig) {
+      toast.error(FIREBASE_SETUP_MESSAGE);
       return;
     }
 
