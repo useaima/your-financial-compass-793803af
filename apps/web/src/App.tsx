@@ -3,10 +3,12 @@ import { MotionConfig } from "framer-motion";
 import { ThemeProvider } from "next-themes";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { AlertTriangle, LogOut, RefreshCw } from "lucide-react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppErrorDialog from "@/components/AppErrorDialog";
+import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
 import PwaRuntime from "@/components/PwaRuntime";
 import { AppPreferencesProvider } from "@/context/AppPreferencesContext";
@@ -65,6 +67,53 @@ function RouteSuspense({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<FullPageLoading />}>{children}</Suspense>;
 }
 
+function WorkspaceRecovery({ description }: { description: string }) {
+  const { refresh, refreshing, signOut, saving } = usePublicUser();
+
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-6">
+      <div className="w-full max-w-lg rounded-[1.8rem] border border-border bg-card/95 p-6 shadow-[0_24px_70px_-40px_rgba(110,73,75,0.28)]">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-destructive/10 text-destructive">
+          <AlertTriangle className="h-5 w-5" />
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight text-foreground">
+          We could not restore your workspace yet
+        </h1>
+        <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Your account is still signed in. Try reloading your workspace first before continuing.
+        </p>
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+          <Button
+            className="gap-2"
+            onClick={() => {
+              void refresh();
+            }}
+            disabled={refreshing}
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+            {refreshing ? "Reloading workspace..." : "Reload workspace"}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              void signOut();
+            }}
+            disabled={saving}
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ExternalRedirect({ href }: { href: string }) {
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -82,7 +131,8 @@ const AppPage = ({ children }: { children: React.ReactNode }) => (
 );
 
 function ProtectedPage({ children }: { children: React.ReactNode }) {
-  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup } = usePublicUser();
+  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup, workspaceError } =
+    usePublicUser();
   const location = useLocation();
 
   if (loading) {
@@ -97,6 +147,16 @@ function ProtectedPage({ children }: { children: React.ReactNode }) {
     return <Navigate to="/auth?mode=set-password" replace state={{ from: location.pathname }} />;
   }
 
+  if (
+    workspaceError &&
+    !bootstrap.has_onboarded &&
+    !bootstrap.profile &&
+    bootstrap.goals.length === 0 &&
+    bootstrap.spending_events.length === 0
+  ) {
+    return <WorkspaceRecovery description={workspaceError} />;
+  }
+
   if (!bootstrap.has_onboarded) {
     return <Navigate to="/onboarding" replace state={{ from: location.pathname }} />;
   }
@@ -105,7 +165,8 @@ function ProtectedPage({ children }: { children: React.ReactNode }) {
 }
 
 function OnboardingPage() {
-  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup } = usePublicUser();
+  const { bootstrap, isAuthenticated, loading, requiresPasswordSetup, workspaceError } =
+    usePublicUser();
 
   if (loading) {
     return <FullPageLoading />;
@@ -117,6 +178,16 @@ function OnboardingPage() {
 
   if (requiresPasswordSetup) {
     return <Navigate to="/auth?mode=set-password" replace />;
+  }
+
+  if (
+    workspaceError &&
+    !bootstrap.has_onboarded &&
+    !bootstrap.profile &&
+    bootstrap.goals.length === 0 &&
+    bootstrap.spending_events.length === 0
+  ) {
+    return <WorkspaceRecovery description={workspaceError} />;
   }
 
   if (bootstrap.has_onboarded) {

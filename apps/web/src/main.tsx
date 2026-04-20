@@ -30,7 +30,7 @@ if (shouldDisableServiceWorker) {
   });
 } else if ("serviceWorker" in navigator) {
   registerSW({
-    immediate: true,
+    immediate: false,
     onRegisterError(error) {
       console.error("Service worker registration failed:", error);
     },

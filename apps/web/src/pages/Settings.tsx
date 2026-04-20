@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { useAppPreferences } from "@/context/app-preferences-context";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { supabase } from "@/integrations/supabase/client";
 import {
   BUDGETING_FOCUS_OPTIONS,
   COUNTRIES,
@@ -94,6 +95,21 @@ type NotificationPreferences = {
   weeklyReports: boolean;
   dailySummary: boolean;
   newsDigest: boolean;
+};
+
+type MfaFactorSummary = {
+  id: string;
+  factor_type: string;
+  status: string;
+  friendly_name?: string;
+};
+
+type PendingTotpEnrollment = {
+  id: string;
+  qrCode: string;
+  secret: string;
+  uri: string;
+  friendlyName: string;
 };
 
 const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
@@ -199,6 +215,14 @@ export default function Settings() {
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(() => readNotificationPreferences());
+  const [mfaBusy, setMfaBusy] = useState(false);
+  const [mfaStatusLoading, setMfaStatusLoading] = useState(false);
+  const [mfaError, setMfaError] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaAssuranceLevel, setMfaAssuranceLevel] = useState<string | null>(null);
+  const [mfaFactors, setMfaFactors] = useState<MfaFactorSummary[]>([]);
+  const [pendingTotpEnrollment, setPendingTotpEnrollment] =
+    useState<PendingTotpEnrollment | null>(null);
   const [form, setForm] = useState({
     first_name: "",
     last_name: "",
@@ -211,6 +235,43 @@ export default function Settings() {
     monthly_fixed_expenses: "",
     budgeting_focus: BUDGETING_FOCUS_OPTIONS[0],
   });
+
+  const loadMfaStatus = useCallback(async () => {
+    if (!user) {
+      setMfaFactors([]);
+      setMfaAssuranceLevel(null);
+      setMfaError(null);
+      return;
+    }
+
+    setMfaStatusLoading(true);
+    try {
+      const [factorsResult, assuranceResult] = await Promise.all([
+        supabase.auth.mfa.listFactors(),
+        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
+      ]);
+
+      if (factorsResult.error) {
+        throw factorsResult.error;
+      }
+
+      if (assuranceResult.error) {
+        throw assuranceResult.error;
+      }
+
+      setMfaFactors((factorsResult.data?.all ?? []) as MfaFactorSummary[]);
+      setMfaAssuranceLevel(assuranceResult.data?.currentLevel ?? null);
+      setMfaError(null);
+    } catch (error) {
+      setMfaError(
+        error instanceof Error
+          ? error.message
+          : "We could not load your MFA status right now.",
+      );
+    } finally {
+      setMfaStatusLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (requestedSection !== activeSection) {
@@ -243,6 +304,10 @@ export default function Settings() {
     }));
   }, [permission]);
 
+  useEffect(() => {
+    void loadMfaStatus();
+  }, [loadMfaStatus]);
+
   const sectionMeta = SETTINGS_SECTIONS[activeSection];
   const sectionIcon = sectionMeta.icon;
   const currentTheme = theme === "light" || theme === "dark" ? theme : "system";
@@ -258,6 +323,14 @@ export default function Settings() {
 
     return format(parsed, "MMMM yyyy");
   }, [bootstrap.profile?.created_at]);
+  const verifiedTotpFactors = useMemo(
+    () =>
+      mfaFactors.filter(
+        (factor) => factor.factor_type === "totp" && factor.status === "verified",
+      ),
+    [mfaFactors],
+  );
+  const hasVerifiedMfa = verifiedTotpFactors.length > 0;
 
   const handleSave = async () => {
     try {
@@ -289,6 +362,84 @@ export default function Settings() {
       toast.error(
         error instanceof Error ? error.message : "Unable to sign out right now.",
       );
+    }
+  };
+
+  const handleStartMfaSetup = async () => {
+    setMfaBusy(true);
+    try {
+      const { data, error } = await supabase.auth.mfa.enroll({
+        factorType: "totp",
+        friendlyName: "eva Authenticator",
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setPendingTotpEnrollment({
+        id: data.id,
+        qrCode: data.totp.qr_code,
+        secret: data.totp.secret,
+        uri: data.totp.uri,
+        friendlyName: data.friendly_name ?? "eva Authenticator",
+      });
+      setMfaCode("");
+      setMfaError(null);
+      toast.success("Scan the QR code in your authenticator app, then enter the code below.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "We could not start MFA setup right now.",
+      );
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleVerifyMfaSetup = async () => {
+    if (!pendingTotpEnrollment) {
+      return;
+    }
+
+    if (mfaCode.trim().length < 6) {
+      toast.error("Enter the six-digit code from your authenticator app.");
+      return;
+    }
+
+    setMfaBusy(true);
+    try {
+      const challenge = await supabase.auth.mfa.challenge({
+        factorId: pendingTotpEnrollment.id,
+      });
+
+      if (challenge.error || !challenge.data) {
+        throw challenge.error ?? new Error("We could not create an MFA challenge.");
+      }
+
+      const verifyResult = await supabase.auth.mfa.verify({
+        factorId: pendingTotpEnrollment.id,
+        challengeId: challenge.data.id,
+        code: mfaCode.trim(),
+      });
+
+      if (verifyResult.error) {
+        throw verifyResult.error;
+      }
+
+      setPendingTotpEnrollment(null);
+      setMfaCode("");
+      toast.success("Multi-factor authentication is now enabled for your eva account.");
+      await loadMfaStatus();
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "We could not verify that MFA code right now.",
+      );
+    } finally {
+      setMfaBusy(false);
     }
   };
 
@@ -632,6 +783,115 @@ export default function Settings() {
               <p className="mt-1 text-xs text-muted-foreground">
                 Account security and session control are handled with Supabase Auth.
               </p>
+            </div>
+          </div>
+
+          <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+            <p className="text-sm font-semibold text-foreground">Multi-factor authentication</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Because eva holds sensitive financial data, we recommend adding an authenticator app as a second layer of sign-in protection.
+            </p>
+
+            <div className="mt-4 rounded-2xl border border-border bg-background/80 p-4">
+              <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">
+                    {hasVerifiedMfa ? "MFA is enabled" : "MFA is not enabled yet"}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {hasVerifiedMfa
+                      ? `Current assurance level: ${mfaAssuranceLevel ?? "aal2"}`
+                      : "Set up a TOTP authenticator app to protect your eva account beyond password-only sign-in."}
+                  </p>
+                </div>
+                {!hasVerifiedMfa && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="gap-2"
+                    onClick={handleStartMfaSetup}
+                    disabled={mfaBusy || mfaStatusLoading}
+                  >
+                    {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                    {pendingTotpEnrollment ? "Restart setup" : "Enable MFA"}
+                  </Button>
+                )}
+              </div>
+
+              {mfaStatusLoading && (
+                <p className="mt-3 text-xs text-muted-foreground">Loading MFA status...</p>
+              )}
+
+              {mfaError && (
+                <div className="mt-3 rounded-xl border border-destructive/20 bg-destructive/5 p-3 text-xs text-destructive">
+                  {mfaError}
+                </div>
+              )}
+
+              {hasVerifiedMfa && (
+                <div className="mt-4 space-y-2">
+                  {verifiedTotpFactors.map((factor) => (
+                    <div key={factor.id} className="rounded-xl border border-border px-3 py-3">
+                      <p className="text-sm font-semibold text-foreground">
+                        {factor.friendly_name || "eva Authenticator"}
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Verified TOTP factor active. Sign-ins can be stepped up to AAL2 when required.
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {pendingTotpEnrollment && !hasVerifiedMfa && (
+                <div className="mt-4 space-y-4 rounded-2xl border border-primary/20 bg-primary/5 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Finish MFA setup</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Scan the QR code with Google Authenticator, 1Password, Authy, or another TOTP app, then enter the current code.
+                    </p>
+                  </div>
+
+                  <div className="flex justify-center rounded-2xl bg-white p-4">
+                    <img
+                      src={`data:image/svg+xml;utf8,${encodeURIComponent(pendingTotpEnrollment.qrCode)}`}
+                      alt="TOTP QR code for eva MFA setup"
+                      className="h-40 w-40"
+                    />
+                  </div>
+
+                  <div className="rounded-xl border border-border bg-background px-3 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                      Manual setup secret
+                    </p>
+                    <p className="mt-2 break-all font-mono text-sm text-foreground">
+                      {pendingTotpEnrollment.secret}
+                    </p>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="mfa-code">Authenticator code</Label>
+                    <Input
+                      id="mfa-code"
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      value={mfaCode}
+                      onChange={(event) => setMfaCode(event.target.value.replace(/\s+/g, ""))}
+                      placeholder="123456"
+                    />
+                  </div>
+
+                  <Button
+                    type="button"
+                    className="w-full gap-2"
+                    onClick={handleVerifyMfaSetup}
+                    disabled={mfaBusy || mfaCode.trim().length < 6}
+                  >
+                    {mfaBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
+                    {mfaBusy ? "Verifying..." : "Verify and enable MFA"}
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
 

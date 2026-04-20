@@ -38,6 +38,7 @@ import { SUPPORT_LINKS } from "@/lib/supportLinks";
 
 type AuthMode = "signin" | "signup" | "verify-email" | "set-password";
 type VerificationFlow = "signup" | "legacy";
+type VerificationMethod = "magic-link" | "code";
 const VERIFY_EMAIL_AUTO_RESEND_KEY = "eva-pending-verification-email";
 const VERIFY_EMAIL_AUTO_RESEND_DELAY_SECONDS = 12;
 
@@ -124,6 +125,7 @@ export default function Auth({ forcedMode }: AuthProps) {
     resendVerificationEmail,
     signInWithPassword,
     signUpWithPassword,
+    verifyEmailCode,
   } = usePublicUser();
   const [searchParams, setSearchParams] = useSearchParams();
   const [submitting, setSubmitting] = useState(false);
@@ -145,6 +147,8 @@ export default function Auth({ forcedMode }: AuthProps) {
     password: "",
     confirm_password: "",
   });
+  const [verificationMethod, setVerificationMethod] = useState<VerificationMethod>("magic-link");
+  const [verificationCode, setVerificationCode] = useState("");
   const [autoResendCountdown, setAutoResendCountdown] = useState<number | null>(null);
   const [autoResendState, setAutoResendState] = useState<
     "idle" | "countdown" | "sending" | "sent" | "error"
@@ -224,6 +228,31 @@ export default function Auth({ forcedMode }: AuthProps) {
     },
     [resendVerificationEmail],
   );
+
+  const handleVerifyCode = async () => {
+    if (!verificationEmail || !isValidEmail(verificationEmail)) {
+      toast.error("Enter a valid email address first.");
+      return;
+    }
+
+    if (verificationCode.trim().length < 6) {
+      toast.error("Enter the verification code from your email to continue.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await verifyEmailCode(verificationEmail, verificationCode);
+      persistLastEmail(verificationEmail);
+      toast.success("Email verified. Loading your eva workspace...");
+    } catch (error) {
+      toast.error(
+        getAuthErrorMessage(error, "We could not verify that code right now."),
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleSignInResend = async () => {
     const email = signInEmail.trim().toLowerCase();
@@ -429,6 +458,13 @@ export default function Auth({ forcedMode }: AuthProps) {
 
     return () => window.clearInterval(intervalId);
   }, [currentMode, triggerVerificationDelivery, verificationEmail, verificationFlow]);
+
+  useEffect(() => {
+    if (currentMode !== "verify-email") {
+      setVerificationMethod("magic-link");
+      setVerificationCode("");
+    }
+  }, [currentMode]);
 
   const passwordChecks = currentMode === "set-password"
     ? setPasswordStrength.checks
@@ -871,9 +907,78 @@ export default function Auth({ forcedMode }: AuthProps) {
                 </div>
               </div>
 
+              <div className="rounded-2xl border border-border bg-background/70 p-4">
+                <p className="text-sm font-medium text-foreground">Choose how to verify</p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  You can finish verification with a magic link or by entering the email code if your inbox shows one.
+                </p>
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={() => setVerificationMethod("magic-link")}
+                    className={cn(
+                      "rounded-2xl border px-4 py-4 text-left transition-colors",
+                      verificationMethod === "magic-link"
+                        ? "border-primary bg-primary/8 text-primary"
+                        : "border-border bg-card text-foreground hover:border-primary/30",
+                    )}
+                  >
+                    <p className="text-sm font-semibold">Magic link</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Open the verification email and tap the secure link to continue directly into eva.
+                    </p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setVerificationMethod("code")}
+                    className={cn(
+                      "rounded-2xl border px-4 py-4 text-left transition-colors",
+                      verificationMethod === "code"
+                        ? "border-primary bg-primary/8 text-primary"
+                        : "border-border bg-card text-foreground hover:border-primary/30",
+                    )}
+                  >
+                    <p className="text-sm font-semibold">Verification code</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      If your email includes a code, paste it below and eva will verify it here.
+                    </p>
+                  </button>
+                </div>
+
+                {verificationMethod === "code" && (
+                  <div className="mt-4 space-y-3">
+                    <div className="space-y-2">
+                      <Label htmlFor="verification-code">Verification code</Label>
+                      <Input
+                        id="verification-code"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        placeholder="Enter the code from your email"
+                        value={verificationCode}
+                        onChange={(event) => setVerificationCode(event.target.value.replace(/\s+/g, ""))}
+                        className="h-12 text-base tracking-[0.24em]"
+                      />
+                    </div>
+                    <Button
+                      type="button"
+                      className="w-full gap-2"
+                      onClick={handleVerifyCode}
+                      disabled={submitting || verificationCode.trim().length < 6}
+                    >
+                      {submitting ? "Verifying code..." : "Verify code"}
+                      {!submitting && <ShieldCheck className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                )}
+              </div>
+
               <div className="flex flex-col gap-3 sm:flex-row">
                 <Button type="button" className="flex-1 gap-2" onClick={handleResend} disabled={resending}>
-                  {resending ? "Sending again..." : "Resend email"}
+                  {resending
+                    ? "Sending again..."
+                    : verificationMethod === "code"
+                      ? "Send another verification email"
+                      : "Resend magic link email"}
                   {!resending && <RefreshCw className="h-4 w-4" />}
                 </Button>
                 {!forcedMode && (

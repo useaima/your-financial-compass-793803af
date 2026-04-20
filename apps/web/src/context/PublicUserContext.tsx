@@ -80,9 +80,11 @@ type PublicUserContextValue = {
   loading: boolean;
   refreshing: boolean;
   saving: boolean;
+  workspaceError: string | null;
   signUpWithPassword: (payload: SignUpPayload) => Promise<SignUpResult>;
   signInWithPassword: (email: string, password: string) => Promise<void>;
   resendVerificationEmail: (email: string) => Promise<void>;
+  verifyEmailCode: (email: string, code: string) => Promise<void>;
   sendLegacyMagicLink: (email: string) => Promise<void>;
   completeLegacyPasswordSetup: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
@@ -161,7 +163,9 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   const [workspaceLoading, setWorkspaceLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const authResolutionId = useRef(0);
+  const bootstrapRef = useRef<BootstrapData>(getEmptyBootstrap());
 
   const authProfileSeed = useMemo(() => getAuthProfileSeed(user), [user]);
   const requiresPasswordSetup = useMemo(
@@ -171,36 +175,62 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
 
   const applyBootstrap = useCallback((data: BootstrapData) => {
     setBootstrap(data);
+    bootstrapRef.current = data;
+    setWorkspaceError(null);
     writeCachedBootstrap(data);
   }, []);
 
   const resetWorkspace = useCallback((nextUser: User | null) => {
     if (!nextUser) {
       clearCachedBootstrap();
-      setBootstrap(getEmptyBootstrap());
+      const emptyBootstrap = getEmptyBootstrap();
+      bootstrapRef.current = emptyBootstrap;
+      setBootstrap(emptyBootstrap);
+      setWorkspaceError(null);
       return;
     }
 
     const cached = readCachedBootstrap(nextUser.id);
-    setBootstrap(cached ?? getEmptyBootstrap(nextUser.id, nextUser.email ?? null));
+    const nextBootstrap = cached ?? getEmptyBootstrap(nextUser.id, nextUser.email ?? null);
+    bootstrapRef.current = nextBootstrap;
+    setBootstrap(nextBootstrap);
+    setWorkspaceError(null);
   }, []);
 
   const handleRefreshFailure = useCallback((targetUser: User | null, error: unknown) => {
+    const activeBootstrap = bootstrapRef.current;
+
     if (targetUser) {
       const cached = readCachedBootstrap(targetUser.id);
-      if (cached) {
-        setBootstrap(cached);
-      } else {
-        setBootstrap(getEmptyBootstrap(targetUser.id, targetUser.email ?? null));
-      }
+      const canReuseActiveBootstrap =
+        activeBootstrap.user_id === targetUser.id &&
+        (activeBootstrap.has_onboarded ||
+          Boolean(activeBootstrap.profile) ||
+          activeBootstrap.goals.length > 0 ||
+          activeBootstrap.budget_limits.length > 0 ||
+          activeBootstrap.spending_events.length > 0 ||
+          activeBootstrap.financial_entries.length > 0 ||
+          activeBootstrap.subscriptions.length > 0);
+
+      const fallbackBootstrap =
+        cached ??
+        (canReuseActiveBootstrap
+          ? activeBootstrap
+          : getEmptyBootstrap(targetUser.id, targetUser.email ?? null));
+
+      bootstrapRef.current = fallbackBootstrap;
+      setBootstrap(fallbackBootstrap);
     } else {
-      setBootstrap(getEmptyBootstrap());
+      const emptyBootstrap = getEmptyBootstrap();
+      bootstrapRef.current = emptyBootstrap;
+      setBootstrap(emptyBootstrap);
     }
 
     const message =
       error instanceof Error
         ? error.message
         : handleAppError(error, "We could not load your workspace. Please try again.").message;
+    setWorkspaceError(message);
     console.warn(message);
   }, []);
 
@@ -211,6 +241,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     if (!nextSession) {
       setSession(null);
       setUser(null);
+      setWorkspaceError(null);
       setAuthLoading(false);
       return;
     }
@@ -254,6 +285,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       if (!activeUser) {
         resetWorkspace(null);
         setWorkspaceLoading(false);
+        setWorkspaceError(null);
         return;
       }
 
@@ -310,6 +342,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     }
 
     setRefreshing(true);
+    setWorkspaceError(null);
     try {
       const data = await fetchBootstrap({ legacyPublicUserId });
       applyBootstrap(data);
@@ -423,6 +456,30 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  const verifyEmailCode = useCallback(async (email: string, code: string) => {
+    if (!hasSupabaseConfig) {
+      throw new Error(SUPABASE_SETUP_MESSAGE);
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const normalizedCode = code.trim();
+
+    const { error } = await supabase.auth.verifyOtp({
+      email: normalizedEmail,
+      token: normalizedCode,
+      type: "signup",
+      options: {
+        redirectTo: getAuthRedirectTo(),
+      },
+    });
+
+    if (error) {
+      throw new Error(
+        getAuthErrorMessage(error, "We could not verify that code. Please try again."),
+      );
+    }
+  }, []);
+
   const sendLegacyMagicLink = useCallback(async (email: string) => {
     if (!hasSupabaseConfig) {
       throw new Error(SUPABASE_SETUP_MESSAGE);
@@ -490,6 +547,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     }
 
     clearCachedBootstrap();
+    setWorkspaceError(null);
     setBootstrap(getEmptyBootstrap());
   }, []);
 
@@ -509,9 +567,11 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       loading,
       refreshing,
       saving,
+      workspaceError,
       signUpWithPassword,
       signInWithPassword,
       resendVerificationEmail,
+      verifyEmailCode,
       sendLegacyMagicLink,
       completeLegacyPasswordSetup,
       signOut,
@@ -556,6 +616,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       signOut,
       signUpWithPassword,
       user,
+      verifyEmailCode,
+      workspaceError,
     ],
   );
 
