@@ -70,6 +70,7 @@ class PublicUserState {
 
 class PublicUserNotifier extends StateNotifier<PublicUserState> {
   static const String _bootstrapCacheKey = 'eva-workspace-cache';
+  String? _activeUserId;
 
   PublicUserNotifier() : super(PublicUserState()) {
     _initialize();
@@ -88,15 +89,24 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
 
   Future<void> _handleAuthStateChange(Session? session) async {
     if (session == null) {
-      state = PublicUserState();
+      _activeUserId = null;
+      state = PublicUserState(authLoading: false, loading: false);
       await _clearCachedBootstrap();
       return;
     }
 
+    final nextUserId = session.user.id;
+    final isSameUser = _activeUserId == nextUserId;
+    final shouldReloadBootstrap =
+        !isSameUser ||
+        state.bootstrap == null ||
+        state.bootstrap!.userId != nextUserId;
+
+    _activeUserId = nextUserId;
     state = state.copyWith(
       session: session,
       user: session.user,
-      userId: session.user.id,
+      userId: nextUserId,
       isAuthenticated: true,
       authLoading: false,
     );
@@ -105,8 +115,9 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
     final requiresPasswordSetup = await AuthService.requiresPasswordSetup(session.user);
     state = state.copyWith(requiresPasswordSetup: requiresPasswordSetup);
 
-    // Load bootstrap data
-    await _loadBootstrap();
+    if (shouldReloadBootstrap) {
+      await _loadBootstrap();
+    }
   }
 
   Future<void> _loadBootstrap() async {

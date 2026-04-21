@@ -11,14 +11,29 @@ import 'package:eva_app/screens/onboarding_screen.dart';
 import 'package:eva_app/screens/transactions_screen.dart';
 import 'package:eva_app/widgets/layout.dart';
 
-class EvaApp extends ConsumerWidget {
+class EvaApp extends ConsumerStatefulWidget {
   const EvaApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final publicUser = ref.watch(publicUserProvider);
+  ConsumerState<EvaApp> createState() => _EvaAppState();
+}
 
-    final router = GoRouter(
+class _EvaAppState extends ConsumerState<EvaApp> {
+  late final ValueNotifier<int> _routerRefresh;
+  late final GoRouter _router;
+  ProviderSubscription<PublicUserState>? _publicUserSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _routerRefresh = ValueNotifier<int>(0);
+
+    _publicUserSubscription = ref.listenManual<PublicUserState>(publicUserProvider, (_, __) {
+      _routerRefresh.value++;
+    });
+
+    _router = GoRouter(
+      refreshListenable: _routerRefresh,
       routes: [
         GoRoute(
           path: '/',
@@ -27,6 +42,10 @@ class EvaApp extends ConsumerWidget {
         GoRoute(
           path: '/auth',
           builder: (context, state) => const AuthScreen(),
+        ),
+        GoRoute(
+          path: '/loading',
+          builder: (context, state) => const LoadingScreen(),
         ),
         GoRoute(
           path: '/onboarding',
@@ -54,11 +73,32 @@ class EvaApp extends ConsumerWidget {
         ),
       ],
       redirect: (context, state) {
+        final publicUser = ref.read(publicUserProvider);
         final isAuthenticated = publicUser.isAuthenticated;
-        final hasOnboarded = publicUser.bootstrap?.hasOnboarded ?? false;
         final requiresPasswordSetup = publicUser.requiresPasswordSetup;
+        final hasBootstrap = publicUser.bootstrap != null;
+        final hasOnboarded = publicUser.bootstrap?.hasOnboarded ?? false;
         final location = state.matchedLocation;
+        final isLoadingRoute = location == '/loading';
         final isPublicRoute = location == '/' || location.startsWith('/auth');
+        final isWorkspaceLoading =
+            publicUser.authLoading || (isAuthenticated && publicUser.loading && !hasBootstrap);
+
+        if (isWorkspaceLoading) {
+          return isLoadingRoute ? null : '/loading';
+        }
+
+        if (isLoadingRoute) {
+          if (!isAuthenticated) {
+            return '/auth';
+          }
+
+          if (requiresPasswordSetup) {
+            return '/auth?mode=set-password';
+          }
+
+          return hasOnboarded ? '/dashboard' : '/onboarding';
+        }
 
         if (!isAuthenticated) {
           return isPublicRoute ? null : '/auth';
@@ -72,14 +112,29 @@ class EvaApp extends ConsumerWidget {
           return hasOnboarded ? '/dashboard' : '/onboarding';
         }
 
-        if (!hasOnboarded) {
+        if (!hasOnboarded && location != '/onboarding') {
           return '/onboarding';
+        }
+
+        if (hasOnboarded && location == '/onboarding') {
+          return '/dashboard';
         }
 
         return null;
       },
     );
+  }
 
+  @override
+  void dispose() {
+    _publicUserSubscription?.close();
+    _routerRefresh.dispose();
+    _router.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return MaterialApp.router(
       title: 'EVA - Your AI Finance Assistant',
       theme: ThemeData(
@@ -88,7 +143,7 @@ class EvaApp extends ConsumerWidget {
         fontFamily: 'Inter',
         useMaterial3: true,
       ),
-      routerConfig: router,
+      routerConfig: _router,
     );
   }
 }
@@ -129,6 +184,26 @@ class LandingScreen extends StatelessWidget {
               onPressed: () => context.go('/auth'),
               child: const Text('Sign In'),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class LoadingScreen extends StatelessWidget {
+  const LoadingScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const Scaffold(
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Loading your EVA workspace...'),
           ],
         ),
       ),
