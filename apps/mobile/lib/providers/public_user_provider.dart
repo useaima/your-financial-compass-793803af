@@ -163,7 +163,7 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
   }
 
   // Auth methods
-  Future<void> signUpWithPassword({
+  Future<bool> signUpWithPassword({
     required String fullName,
     required String email,
     required String country,
@@ -171,7 +171,7 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
     required String password,
     required bool updatesOptIn,
   }) async {
-    await AuthService.signUpWithPassword(
+    return AuthService.signUpWithPassword(
       fullName: fullName,
       email: email,
       country: country,
@@ -183,6 +183,14 @@ class PublicUserNotifier extends StateNotifier<PublicUserState> {
 
   Future<void> signInWithPassword(String email, String password) async {
     await AuthService.signInWithPassword(email, password);
+  }
+
+  Future<void> resendVerificationEmail(String email) async {
+    await AuthService.resendVerificationEmail(email);
+  }
+
+  Future<void> verifyEmailCode(String email, String code) async {
+    await AuthService.verifyEmailCode(email, code);
   }
 
   Future<void> signOut() async {

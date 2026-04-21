@@ -7,7 +7,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import ManualEntryForm from "@/components/financial/ManualEntryForm";
 import CashflowDiagram from "@/components/financial/CashflowDiagram";
+import SensitiveActionDialog from "@/components/SensitiveActionDialog";
 import { useFinancialEntries } from "@/hooks/useFinancialEntries";
+import { useMfaStatus } from "@/hooks/useMfaStatus";
 import { SUPPORT_LINKS } from "@/lib/supportLinks";
 
 type IncomeItem = { name: string; amount: number; description?: string };
@@ -41,8 +43,27 @@ export default function FinancialStatement() {
   const [data, setData] = useState<FinancialStatementData | null>(null);
   const [loading, setLoading] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [statementGateOpen, setStatementGateOpen] = useState(false);
   const statementRef = useRef<HTMLDivElement>(null);
   const { assets: manualAssets, liabilities: manualLiabilities, addAsset, addLiability, editAsset, editLiability, deleteAsset, deleteLiability } = useFinancialEntries();
+  const {
+    hasVerifiedMfa,
+    loading: mfaLoading,
+    refresh: refreshMfaStatus,
+  } = useMfaStatus();
+
+  const ensureStatementAccess = async () => {
+    const status = hasVerifiedMfa
+      ? { hasVerifiedMfa: true }
+      : await refreshMfaStatus();
+
+    if (!status.hasVerifiedMfa) {
+      setStatementGateOpen(true);
+      return false;
+    }
+
+    return true;
+  };
 
   const exportPDF = async () => {
     if (!statementRef.current) return;
@@ -91,6 +112,10 @@ export default function FinancialStatement() {
       return;
     }
 
+    if (!(await ensureStatementAccess())) {
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await invokeEdgeFunction<FinancialStatementData>("generate-statement");
@@ -134,7 +159,7 @@ export default function FinancialStatement() {
           <p className="mt-3 text-xs text-muted-foreground">
             Need help?{" "}
             <a
-              href={SUPPORT_LINKS.financialStatement}
+              href={SUPPORT_LINKS.statementErrors}
               target="_blank"
               rel="noreferrer"
               className="font-semibold text-primary hover:text-primary/85"
@@ -187,7 +212,7 @@ export default function FinancialStatement() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Rich Dad style · AI-generated analysis</p>
           <a
-            href={SUPPORT_LINKS.financialStatement}
+            href={SUPPORT_LINKS.statementErrors}
             target="_blank"
             rel="noreferrer"
             className="mt-2 inline-flex text-xs font-semibold text-primary hover:text-primary/85"
@@ -404,6 +429,15 @@ export default function FinancialStatement() {
           <p className="text-sm text-muted-foreground leading-relaxed">{data.summary}</p>
         </motion.div>
       )}
+
+      <SensitiveActionDialog
+        action="generate_statement"
+        checking={mfaLoading}
+        hasVerifiedMfa={hasVerifiedMfa}
+        open={statementGateOpen}
+        onOpenChange={setStatementGateOpen}
+        onRefresh={refreshMfaStatus}
+      />
     </div>
   );
 }

@@ -67,6 +67,11 @@ type SignUpResult = {
   requiresEmailVerification: boolean;
 };
 
+type WorkspaceUser = {
+  id: string;
+  email: string | null;
+};
+
 type PublicUserContextValue = {
   session: Session | null;
   user: User | null;
@@ -166,8 +171,14 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const authResolutionId = useRef(0);
   const bootstrapRef = useRef<BootstrapData>(getEmptyBootstrap());
+  const currentUserId = user?.id ?? null;
+  const currentUserEmail = user?.email ?? null;
 
   const authProfileSeed = useMemo(() => getAuthProfileSeed(user), [user]);
+  const activeWorkspaceUser = useMemo<WorkspaceUser | null>(
+    () => (currentUserId ? { id: currentUserId, email: currentUserEmail } : null),
+    [currentUserEmail, currentUserId],
+  );
   const requiresPasswordSetup = useMemo(
     () => Boolean(user) && !hasPasswordSetup(user, bootstrap.profile),
     [bootstrap.profile, user],
@@ -180,7 +191,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     writeCachedBootstrap(data);
   }, []);
 
-  const resetWorkspace = useCallback((nextUser: User | null) => {
+  const resetWorkspace = useCallback((nextUser: WorkspaceUser | null) => {
     if (!nextUser) {
       clearCachedBootstrap();
       const emptyBootstrap = getEmptyBootstrap();
@@ -197,7 +208,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     setWorkspaceError(null);
   }, []);
 
-  const handleRefreshFailure = useCallback((targetUser: User | null, error: unknown) => {
+  const handleRefreshFailure = useCallback((targetUser: WorkspaceUser | null, error: unknown) => {
     const activeBootstrap = bootstrapRef.current;
 
     if (targetUser) {
@@ -281,7 +292,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const initialize = useCallback(
-    async (activeUser: User | null) => {
+    async (activeUser: WorkspaceUser | null) => {
       if (!activeUser) {
         resetWorkspace(null);
         setWorkspaceLoading(false);
@@ -332,9 +343,9 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    resetWorkspace(user);
-    void initialize(user);
-  }, [authLoading, initialize, resetWorkspace, user]);
+    resetWorkspace(activeWorkspaceUser);
+    void initialize(activeWorkspaceUser);
+  }, [activeWorkspaceUser, authLoading, initialize, resetWorkspace]);
 
   const refresh = useCallback(async () => {
     if (!user) {
@@ -347,7 +358,10 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       const data = await fetchBootstrap({ legacyPublicUserId });
       applyBootstrap(data);
     } catch (error) {
-      handleRefreshFailure(user, error);
+        handleRefreshFailure(
+          user ? { id: user.id, email: user.email ?? null } : null,
+          error,
+        );
     } finally {
       setRefreshing(false);
     }

@@ -4,9 +4,11 @@ import { Check, Copy, FileUp, Mail, PencilLine, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { Button } from "@/components/ui/button";
+import SensitiveActionDialog from "@/components/SensitiveActionDialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useMfaStatus } from "@/hooks/useMfaStatus";
 import {
   SPENDING_CATEGORIES,
   SPENDING_CATEGORY_COLORS,
@@ -48,6 +50,8 @@ export default function Transactions() {
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [receiptGateOpen, setReceiptGateOpen] = useState(false);
+  const [reviewGateOpen, setReviewGateOpen] = useState(false);
   const [editForm, setEditForm] = useState({
     merchant: "",
     category: "Other",
@@ -56,6 +60,31 @@ export default function Transactions() {
     description: "",
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const {
+    hasVerifiedMfa,
+    loading: mfaLoading,
+    refresh: refreshMfaStatus,
+  } = useMfaStatus();
+
+  const ensureSensitiveAccess = async (
+    action: "receipt_forwarding" | "review_draft_transaction",
+  ) => {
+    const status = hasVerifiedMfa
+      ? { hasVerifiedMfa: true }
+      : await refreshMfaStatus();
+
+    if (status.hasVerifiedMfa) {
+      return true;
+    }
+
+    if (action === "receipt_forwarding") {
+      setReceiptGateOpen(true);
+    } else {
+      setReviewGateOpen(true);
+    }
+
+    return false;
+  };
 
   const transactions = useMemo<TransactionRow[]>(
     () =>
@@ -118,6 +147,10 @@ export default function Transactions() {
   };
 
   const handleCopyReceiptAddress = async () => {
+    if (!(await ensureSensitiveAccess("receipt_forwarding"))) {
+      return;
+    }
+
     try {
       await navigator.clipboard.writeText(receiptForwardAddress);
       toast.success("Receipt forwarding address copied.");
@@ -149,6 +182,10 @@ export default function Transactions() {
     draftId: string,
     decision: "approve" | "reject" | "edit",
   ) => {
+    if (decision !== "reject" && !(await ensureSensitiveAccess("review_draft_transaction"))) {
+      return;
+    }
+
     try {
       await reviewDraftTransaction({
         draftTransactionId: draftId,
@@ -580,6 +617,24 @@ export default function Transactions() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <SensitiveActionDialog
+        action="receipt_forwarding"
+        checking={mfaLoading}
+        hasVerifiedMfa={hasVerifiedMfa}
+        open={receiptGateOpen}
+        onOpenChange={setReceiptGateOpen}
+        onRefresh={refreshMfaStatus}
+      />
+
+      <SensitiveActionDialog
+        action="review_draft_transaction"
+        checking={mfaLoading}
+        hasVerifiedMfa={hasVerifiedMfa}
+        open={reviewGateOpen}
+        onOpenChange={setReviewGateOpen}
+        onRefresh={refreshMfaStatus}
+      />
     </div>
   );
 }

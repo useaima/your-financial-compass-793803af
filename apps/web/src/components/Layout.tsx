@@ -124,6 +124,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="window-controls-safe-sidebar fixed hidden w-[236px] flex-col gap-4 border-r border-border/90 bg-[hsl(var(--sidebar-background)/0.94)] p-4 pt-5 shadow-[18px_0_45px_-38px_rgba(110,73,75,0.28)] backdrop-blur-xl md:flex">
+        <div className="rounded-[1.6rem] border border-border/80 bg-card/92 p-4 shadow-[0_18px_40px_-34px_rgba(110,73,75,0.18)]">
+          <BrandLockup
+            size="sm"
+            subtitleClassName="text-[0.58rem] tracking-[0.2em]"
+            titleClassName="text-[1.08rem]"
+            iconClassName="h-11 w-11 rounded-[1rem]"
+          />
+          <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
+            Keep your finances grounded in one canonical workspace.
+          </p>
+        </div>
+
         <div className="min-h-0 flex-1 overflow-y-auto pr-1">
           <nav className="space-y-3 pb-2">
             <div className="space-y-1 rounded-[1.5rem] border border-border/80 bg-card/90 p-2 shadow-[0_18px_40px_-34px_rgba(110,73,75,0.18)]">

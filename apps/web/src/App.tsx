@@ -85,6 +85,18 @@ function WorkspaceRecovery({ description }: { description: string }) {
         <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
           Your account is still signed in. Try reloading your workspace first before continuing.
         </p>
+        <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+          Need a recovery guide?{" "}
+          <a
+            href={SUPPORT_BASE_URL + "/articles/onboarding-recovery"}
+            target="_blank"
+            rel="noreferrer"
+            className="font-semibold text-primary hover:text-primary/85"
+          >
+            Open the workspace recovery article
+          </a>
+          .
+        </p>
         <div className="mt-6 flex flex-col gap-3 sm:flex-row">
           <Button
             className="gap-2"

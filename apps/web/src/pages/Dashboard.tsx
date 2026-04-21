@@ -172,14 +172,46 @@ export default function Dashboard() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        className="rounded-[1.9rem] border border-border/80 bg-card/95 p-5 shadow-[0_24px_70px_-44px_rgba(110,73,75,0.28)] md:p-6"
       >
-        <h1 className="text-2xl font-bold tracking-tight text-balance">
-          {profile?.first_name ? `Welcome, ${profile.first_name}` : "Your Financial Overview"}
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          This workspace stays grounded in your onboarding baseline and every real spending record
-          you log.
-        </p>
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div className="space-y-3">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-background/80 px-3 py-1.5 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <Sparkles className="h-3.5 w-3.5 text-primary" />
+              EVA workspace
+            </div>
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight text-balance text-foreground md:text-4xl">
+                {profile?.first_name ? `Welcome back, ${profile.first_name}` : "Your financial overview"}
+              </h1>
+              <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+                This workspace stays grounded in your onboarding baseline, approved spending history,
+                and the next action EVA thinks deserves attention now.
+              </p>
+            </div>
+          </div>
+
+          <div className="rounded-[1.4rem] border border-primary/15 bg-primary/8 p-4 lg:max-w-sm">
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-primary">
+              Next recommendation
+            </p>
+            <p className="mt-2 text-lg font-semibold text-foreground">
+              {nextAction?.title ?? "Keep the logging loop alive"}
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
+              {nextAction?.body ??
+                "Log one more real expense so EVA can keep your dashboard, statements, and insights aligned."}
+            </p>
+            <Button
+              type="button"
+              className="mt-4 gap-2"
+              onClick={() => navigate(nextAction?.cta_href ?? "/chat")}
+            >
+              {nextAction?.cta_label ?? "Open AI Advisor"}
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
       </motion.div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -190,13 +222,17 @@ export default function Dashboard() {
             initial="hidden"
             animate="visible"
             variants={fadeUp}
-            className="space-y-2 rounded-xl border border-border bg-card p-4"
+            className="space-y-3 rounded-[1.35rem] border border-border/80 bg-card/95 p-4 shadow-[0_18px_48px_-38px_rgba(110,73,75,0.2)]"
           >
             <div className="flex items-center justify-between">
-              <span className="text-xs font-medium text-muted-foreground">{stat.label}</span>
-              <stat.icon className="h-3.5 w-3.5 text-muted-foreground" />
+              <span className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+                {stat.label}
+              </span>
+              <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <stat.icon className="h-4 w-4" />
+              </div>
             </div>
-            <p className="text-xl font-bold tabular-nums">{stat.value}</p>
+            <p className="text-2xl font-bold tabular-nums text-foreground">{stat.value}</p>
           </motion.div>
         ))}
       </div>

@@ -3,7 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class AuthService {
   static final _supabase = Supabase.instance.client;
 
-  static Future<void> signUpWithPassword({
+  static Future<bool> signUpWithPassword({
     required String fullName,
     required String email,
     required String country,
@@ -28,8 +28,10 @@ class AuthService {
     );
 
     if (response.user == null) {
-      throw Exception('Email verification required. Please check your email.');
+      throw Exception('We could not create your account right now.');
     }
+
+    return response.session == null;
   }
 
   static Future<void> signInWithPassword(String email, String password) async {
@@ -45,6 +47,21 @@ class AuthService {
 
   static Future<void> signOut() async {
     await _supabase.auth.signOut();
+  }
+
+  static Future<void> resendVerificationEmail(String email) async {
+    await _supabase.auth.resend(
+      type: OtpType.signup,
+      email: email.trim().toLowerCase(),
+    );
+  }
+
+  static Future<void> verifyEmailCode(String email, String code) async {
+    await _supabase.auth.verifyOTP(
+      type: OtpType.signup,
+      email: email.trim().toLowerCase(),
+      token: code.trim(),
+    );
   }
 
   static Future<bool> requiresPasswordSetup(User user) async {

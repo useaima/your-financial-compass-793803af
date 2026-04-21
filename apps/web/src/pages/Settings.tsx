@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
@@ -28,6 +28,7 @@ import { Switch } from "@/components/ui/switch";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { useAppPreferences } from "@/context/app-preferences-context";
 import { usePushNotifications } from "@/hooks/usePushNotifications";
+import { useMfaStatus } from "@/hooks/useMfaStatus";
 import { supabase } from "@/integrations/supabase/client";
 import {
   BUDGETING_FOCUS_OPTIONS,
@@ -95,13 +96,6 @@ type NotificationPreferences = {
   weeklyReports: boolean;
   dailySummary: boolean;
   newsDigest: boolean;
-};
-
-type MfaFactorSummary = {
-  id: string;
-  factor_type: string;
-  status: string;
-  friendly_name?: string;
 };
 
 type PendingTotpEnrollment = {
@@ -216,11 +210,7 @@ export default function Settings() {
   const [feedbackSent, setFeedbackSent] = useState(false);
   const [notifPrefs, setNotifPrefs] = useState<NotificationPreferences>(() => readNotificationPreferences());
   const [mfaBusy, setMfaBusy] = useState(false);
-  const [mfaStatusLoading, setMfaStatusLoading] = useState(false);
-  const [mfaError, setMfaError] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState("");
-  const [mfaAssuranceLevel, setMfaAssuranceLevel] = useState<string | null>(null);
-  const [mfaFactors, setMfaFactors] = useState<MfaFactorSummary[]>([]);
   const [pendingTotpEnrollment, setPendingTotpEnrollment] =
     useState<PendingTotpEnrollment | null>(null);
   const [form, setForm] = useState({
@@ -236,42 +226,14 @@ export default function Settings() {
     budgeting_focus: BUDGETING_FOCUS_OPTIONS[0],
   });
 
-  const loadMfaStatus = useCallback(async () => {
-    if (!user) {
-      setMfaFactors([]);
-      setMfaAssuranceLevel(null);
-      setMfaError(null);
-      return;
-    }
-
-    setMfaStatusLoading(true);
-    try {
-      const [factorsResult, assuranceResult] = await Promise.all([
-        supabase.auth.mfa.listFactors(),
-        supabase.auth.mfa.getAuthenticatorAssuranceLevel(),
-      ]);
-
-      if (factorsResult.error) {
-        throw factorsResult.error;
-      }
-
-      if (assuranceResult.error) {
-        throw assuranceResult.error;
-      }
-
-      setMfaFactors((factorsResult.data?.all ?? []) as MfaFactorSummary[]);
-      setMfaAssuranceLevel(assuranceResult.data?.currentLevel ?? null);
-      setMfaError(null);
-    } catch (error) {
-      setMfaError(
-        error instanceof Error
-          ? error.message
-          : "We could not load your MFA status right now.",
-      );
-    } finally {
-      setMfaStatusLoading(false);
-    }
-  }, [user]);
+  const {
+    assuranceLevel: mfaAssuranceLevel,
+    error: mfaError,
+    hasVerifiedMfa,
+    loading: mfaStatusLoading,
+    refresh: refreshMfaStatus,
+    verifiedTotpFactors,
+  } = useMfaStatus();
 
   useEffect(() => {
     if (requestedSection !== activeSection) {
@@ -304,10 +266,6 @@ export default function Settings() {
     }));
   }, [permission]);
 
-  useEffect(() => {
-    void loadMfaStatus();
-  }, [loadMfaStatus]);
-
   const sectionMeta = SETTINGS_SECTIONS[activeSection];
   const sectionIcon = sectionMeta.icon;
   const currentTheme = theme === "light" || theme === "dark" ? theme : "system";
@@ -323,15 +281,6 @@ export default function Settings() {
 
     return format(parsed, "MMMM yyyy");
   }, [bootstrap.profile?.created_at]);
-  const verifiedTotpFactors = useMemo(
-    () =>
-      mfaFactors.filter(
-        (factor) => factor.factor_type === "totp" && factor.status === "verified",
-      ),
-    [mfaFactors],
-  );
-  const hasVerifiedMfa = verifiedTotpFactors.length > 0;
-
   const handleSave = async () => {
     try {
       await updateProfile({
@@ -385,7 +334,6 @@ export default function Settings() {
         friendlyName: data.friendly_name ?? "eva Authenticator",
       });
       setMfaCode("");
-      setMfaError(null);
       toast.success("Scan the QR code in your authenticator app, then enter the code below.");
     } catch (error) {
       toast.error(
@@ -431,7 +379,7 @@ export default function Settings() {
       setPendingTotpEnrollment(null);
       setMfaCode("");
       toast.success("Multi-factor authentication is now enabled for your eva account.");
-      await loadMfaStatus();
+      await refreshMfaStatus();
     } catch (error) {
       toast.error(
         error instanceof Error
@@ -791,6 +739,14 @@ export default function Settings() {
             <p className="mt-2 text-sm text-muted-foreground">
               Because eva holds sensitive financial data, we recommend adding an authenticator app as a second layer of sign-in protection.
             </p>
+            <a
+              href={SUPPORT_LINKS.mfaSecurity}
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 inline-flex text-xs font-semibold text-primary hover:text-primary/85"
+            >
+              Read the MFA setup and recovery guide
+            </a>
 
             <div className="mt-4 rounded-2xl border border-border bg-background/80 p-4">
               <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -1075,9 +1031,9 @@ export default function Settings() {
           <div className="grid gap-4">
             {[
               {
-                title: "Verification and sign-in help",
-                desc: "Open the article for verification emails, resend behavior, and getting back into your workspace.",
-                href: SUPPORT_LINKS.verifyEmail,
+                title: "Verification options",
+                desc: "Use this guide for resend behavior, code entry, magic links, and getting unverified users back into the right flow.",
+                href: SUPPORT_LINKS.verificationOptions,
               },
               {
                 title: "Spending history mismatch",
@@ -1087,12 +1043,22 @@ export default function Settings() {
               {
                 title: "Financial statement troubleshooting",
                 desc: "Read the guide for generating your statement and handling missing-data or session issues.",
-                href: SUPPORT_LINKS.financialStatement,
+                href: SUPPORT_LINKS.statementErrors,
               },
               {
                 title: "Network and offline recovery",
                 desc: "Use the offline guide when EVA cannot reach the server or your connection drops mid-session.",
                 href: SUPPORT_LINKS.offline,
+              },
+              {
+                title: "Workspace recovery and onboarding loops",
+                desc: "Use this when EVA says it cannot restore the workspace or tries to send you back into onboarding unexpectedly.",
+                href: SUPPORT_LINKS.onboardingRecovery,
+              },
+              {
+                title: "MFA setup and recovery",
+                desc: "Read this before enabling MFA or if a sensitive action asks you to refresh your MFA status first.",
+                href: SUPPORT_LINKS.mfaSecurity,
               },
             ].map((item) => (
               <div key={item.title} className="rounded-2xl border border-border bg-background/80 p-4">

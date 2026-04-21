@@ -20,11 +20,25 @@
           "keywords": ["verification", "email", "resend", "confirm email", "sign in"]
         },
         {
+          "id": "verification-options",
+          "question": "Should I verify with a magic link or a code?",
+          "summary": "EVA supports both verification methods so you can use whichever arrives or works best for your device.",
+          "answer": "On the EVA verification screen, you can choose either a magic link or a verification code. A magic link is usually the fastest path because it signs you into EVA after you open the email on the same device. If your inbox shows a one-time code instead, switch EVA to verification code mode and paste it directly into the app. If a returning user signs in before confirming their email, EVA will route them back into verification so the account can be confirmed before the dashboard opens.",
+          "keywords": ["magic link", "verification code", "otp", "email verification", "sign in"]
+        },
+        {
           "id": "onboarding",
           "question": "What information is required during onboarding?",
           "summary": "EVA uses onboarding to build your financial baseline, goals, budgets, and subscriptions.",
           "answer": "Onboarding is where EVA learns your current money picture. You will confirm your financial baseline, choose your intent and guidance style, set goals, define budget limits, and list important subscriptions or financial entries when relevant. Each step is auto-saved, and you can move back to adjust earlier answers before finishing. The first spend you enter at the end becomes the first real activity in your workspace.",
           "keywords": ["onboarding", "setup", "first spend", "workspace"]
+        },
+        {
+          "id": "onboarding-recovery",
+          "question": "Why did EVA take me back to onboarding or say it could not restore my workspace?",
+          "summary": "EVA now shows a workspace recovery state instead of silently throwing you back to setup when bootstrap fails.",
+          "answer": "If EVA cannot reload your workspace after sign-in, it should show a recovery screen with a reload option instead of assuming you are a new user. Start by using Reload workspace once. If you still land in onboarding unexpectedly, sign out and sign in again so EVA can rebuild a clean authenticated session. Auto-saved onboarding drafts stay available for the same signed-in account, so you should not need to restart from the beginning unless the account itself changed.",
+          "keywords": ["loading workspace", "onboarding loop", "workspace recovery", "reload"]
         }
       ]
     },
@@ -94,6 +108,13 @@
           "keywords": ["financial statement", "cashflow", "net worth", "generate statement"]
         },
         {
+          "id": "statement-errors",
+          "question": "Why did financial statement generation fail?",
+          "summary": "Most statement errors come from session problems, low data, or a temporary network issue.",
+          "answer": "If EVA cannot generate your financial statement, first refresh the page once so the authenticated session and workspace bootstrap reload cleanly. If you just verified your email, wait a moment and try again so the session token settles before the request reaches the backend. If the error keeps repeating, make sure you are still signed into the same account that completed onboarding, and check whether EVA is asking you to enable MFA for this sensitive action first. If the statement still fails after those checks, use the support link from the statement screen and include the exact error text.",
+          "keywords": ["statement failed", "invalid jwt", "session error", "generate statement"]
+        },
+        {
           "id": "insights",
           "question": "How are insights generated?",
           "summary": "Insights are grounded in your stored records, not invented from thin air.",
@@ -112,6 +133,13 @@
           "summary": "Use the profile menu to open profile, settings, and account controls.",
           "answer": "Open the avatar menu in the top-right corner and choose Profile, Account, or Settings depending on what you want to change. Profile is for your personal details and planning defaults. Settings covers appearance, font size, reduced motion, and other app preferences. Account shows your signed-in identity and verification state.",
           "keywords": ["profile", "settings", "preferences", "font size", "theme"]
+        },
+        {
+          "id": "mfa-security",
+          "question": "Why is EVA asking me to enable MFA for some actions?",
+          "summary": "EVA only asks for MFA before sensitive actions such as statement generation or approving imported finance data.",
+          "answer": "EVA does not require MFA for casual browsing. Instead, it steps security up only for sensitive actions like generating a financial statement, approving imported draft transactions, or using receipt-forwarding workflows. To enable MFA, open Settings, go to Account, start the authenticator setup, scan the QR code, and verify the six-digit code from your authenticator app. If you already enabled MFA but EVA still prompts you, use Refresh MFA status once and then try the action again.",
+          "keywords": ["mfa", "2fa", "authenticator", "security", "statement", "draft transactions"]
         },
         {
           "id": "sign-out",

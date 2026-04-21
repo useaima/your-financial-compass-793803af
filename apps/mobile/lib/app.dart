@@ -57,13 +57,19 @@ class EvaApp extends ConsumerWidget {
         final isAuthenticated = publicUser.isAuthenticated;
         final hasOnboarded = publicUser.bootstrap?.hasOnboarded ?? false;
         final requiresPasswordSetup = publicUser.requiresPasswordSetup;
+        final location = state.matchedLocation;
+        final isPublicRoute = location == '/' || location.startsWith('/auth');
 
         if (!isAuthenticated) {
-          return '/auth';
+          return isPublicRoute ? null : '/auth';
         }
 
         if (requiresPasswordSetup) {
           return '/auth?mode=set-password';
+        }
+
+        if (isPublicRoute) {
+          return hasOnboarded ? '/dashboard' : '/onboarding';
         }
 
         if (!hasOnboarded) {
@@ -116,7 +122,12 @@ class LandingScreen extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 16),
               ),
               onPressed: () => context.go('/auth'),
-              child: const Text('Get Started'),
+              child: const Text('Sign Up'),
+            ),
+            const SizedBox(height: 12),
+            TextButton(
+              onPressed: () => context.go('/auth'),
+              child: const Text('Sign In'),
             ),
           ],
         ),

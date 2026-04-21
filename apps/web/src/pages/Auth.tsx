@@ -3,6 +3,7 @@ import { Link, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowRight,
+  Brain,
   CheckCircle2,
   KeyRound,
   LockKeyhole,
@@ -10,6 +11,7 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Target,
   UserRound,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -117,6 +119,24 @@ function getStrengthLabel(level: PasswordStrengthLevel) {
   if (level === "medium") return "Medium";
   return "Weak";
 }
+
+const authHighlights = [
+  {
+    icon: ShieldCheck,
+    title: "Verified access first",
+    description: "Every EVA account is confirmed by email before the workspace opens.",
+  },
+  {
+    icon: Brain,
+    title: "One canonical money record",
+    description: "Your dashboard, history, statements, and insights stay anchored to the same data.",
+  },
+  {
+    icon: Target,
+    title: "Onboarding with a real next step",
+    description: "New users verify, onboard, and land in a workspace that already knows what to focus on.",
+  },
+];
 
 export default function Auth({ forcedMode }: AuthProps) {
   const {
@@ -474,17 +494,22 @@ export default function Auth({ forcedMode }: AuthProps) {
     : signUpPasswordStrength.level;
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl flex-col justify-center gap-8 md:grid md:grid-cols-[1.05fr_0.95fr] md:items-center">
+    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-6 md:px-8 md:py-10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[32rem]">
+        <div className="absolute left-1/2 top-[-10rem] h-[28rem] w-[46rem] -translate-x-1/2 rounded-full bg-primary/16 blur-3xl" />
+        <div className="absolute right-[6%] top-24 h-56 w-56 rounded-full bg-[hsl(149_53%_35%/0.06)] blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl flex-col justify-center gap-8 md:grid md:grid-cols-[1.05fr_0.95fr] md:items-center">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="space-y-6"
+          className="space-y-6 md:pr-6"
         >
           <Link
             to="/"
-            className="inline-flex items-center gap-3 rounded-full border border-border bg-card/80 px-4 py-2 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            className="inline-flex items-center gap-3 rounded-full border border-border bg-card/90 px-4 py-2 text-sm text-muted-foreground shadow-sm transition-colors hover:text-foreground"
           >
             <img
               src="/apple-touch-icon.png"
@@ -503,7 +528,7 @@ export default function Auth({ forcedMode }: AuthProps) {
               iconClassName="h-14 w-14 md:h-16 md:w-16"
               titleClassName="text-[2.3rem] md:text-[2.7rem]"
             />
-            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card px-4 py-2 text-xs font-medium text-muted-foreground">
+            <div className="inline-flex items-center gap-2 rounded-full border border-border bg-card/95 px-4 py-2 text-xs font-medium text-muted-foreground shadow-sm">
               <Sparkles className="h-3.5 w-3.5 text-primary" />
               EVA account access
             </div>
@@ -518,24 +543,19 @@ export default function Auth({ forcedMode }: AuthProps) {
             </p>
           </div>
 
-          <div className="grid gap-3 text-sm text-muted-foreground sm:grid-cols-3">
-            <div className="rounded-2xl border border-border bg-card/85 p-4">
-              Verified access
-              <p className="mt-1 text-xs leading-relaxed">
-                Every account is confirmed by email before eva unlocks the workspace.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card/85 p-4">
-              Cross-device sync
-              <p className="mt-1 text-xs leading-relaxed">
-                Your financial record is tied to your account instead of one browser.
-              </p>
-            </div>
-            <div className="rounded-2xl border border-border bg-card/85 p-4">
-              Agent-ready foundation
-              <p className="mt-1 text-xs leading-relaxed">
-                Identity, approval trails, and future agent actions all build on this layer.
-              </p>
+          <div className="rounded-[1.8rem] border border-border/80 bg-card/92 p-5 shadow-[0_24px_70px_-46px_rgba(110,73,75,0.24)]">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {authHighlights.map((item) => (
+                <div key={item.title} className="rounded-[1.25rem] border border-border/80 bg-background/75 p-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/12 text-primary">
+                    <item.icon className="h-4.5 w-4.5" />
+                  </div>
+                  <p className="mt-3 text-sm font-semibold text-foreground">{item.title}</p>
+                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+                    {item.description}
+                  </p>
+                </div>
+              ))}
             </div>
           </div>
         </motion.div>
@@ -544,7 +564,7 @@ export default function Auth({ forcedMode }: AuthProps) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.08 }}
-          className="rounded-[2rem] border border-border bg-card/95 p-6 shadow-[0_28px_80px_-54px_rgba(110,73,75,0.32)] md:p-8"
+          className="rounded-[2rem] border border-border/80 bg-card/96 p-6 shadow-[0_32px_90px_-52px_rgba(110,73,75,0.36)] backdrop-blur-xl md:p-8"
         >
           <div className="mb-6 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
@@ -1010,7 +1030,7 @@ export default function Auth({ forcedMode }: AuthProps) {
               <p className="text-xs text-muted-foreground">
                 Still stuck?{" "}
                 <a
-                  href={SUPPORT_LINKS.verifyEmail}
+                  href={SUPPORT_LINKS.verificationOptions}
                   target="_blank"
                   rel="noreferrer"
                   className="font-semibold text-primary hover:text-primary/85"

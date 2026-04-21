@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { usePublicUser } from "@/context/PublicUserContext";
+import BrandLockup from "@/components/BrandLockup";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -753,12 +754,17 @@ export default function Onboarding() {
   };
 
   return (
-    <div className="min-h-screen bg-background px-4 py-6 md:px-8 md:py-10">
-      <div className="mx-auto max-w-4xl">
+    <div className="relative min-h-screen overflow-hidden bg-background px-4 py-6 md:px-8 md:py-10">
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-[32rem]">
+        <div className="absolute left-1/2 top-[-10rem] h-[28rem] w-[44rem] -translate-x-1/2 rounded-full bg-primary/16 blur-3xl" />
+        <div className="absolute right-[8%] top-24 h-56 w-56 rounded-full bg-[hsl(149_53%_35%/0.06)] blur-3xl" />
+      </div>
+
+      <div className="relative mx-auto max-w-4xl">
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="rounded-[2rem] border border-border bg-card/95 p-6 shadow-[0_28px_80px_-54px_rgba(110,73,75,0.32)]"
+          className="rounded-[2rem] border border-border/80 bg-card/96 p-6 shadow-[0_30px_85px_-52px_rgba(110,73,75,0.34)] backdrop-blur-xl"
         >
           <div className="mb-6 flex items-center justify-between gap-4">
             <button
@@ -771,6 +777,9 @@ export default function Onboarding() {
             </button>
 
             <div className="flex flex-col items-end gap-2">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+                {currentStep.label}
+              </p>
               <div className="flex items-center gap-2">
                 {steps.map((step, index) => (
                   <div
@@ -789,21 +798,41 @@ export default function Onboarding() {
 
           {currentStep.id === "welcome" && (
             <div className="space-y-8 py-8 text-center md:py-12">
-              <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-[1.6rem] bg-primary/12 text-primary">
-                <Sparkles className="h-8 w-8" />
+              <div className="flex justify-center">
+                <BrandLockup
+                  align="center"
+                  loading="eager"
+                  size="lg"
+                  iconClassName="h-14 w-14 md:h-16 md:w-16"
+                  titleClassName="text-[2.2rem] md:text-[2.7rem]"
+                />
               </div>
               <div className="space-y-3">
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                   eva onboarding
                 </p>
                 <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-                  Your AI for smarter money decisions
+                  Build a workspace that starts with real financial context
                 </h1>
                 <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground">
-                  Understand your spending. Improve your habits. Save more. This starts fast,
-                  feels personal, and ends with a real first action instead of a dead-end setup
-                  screen.
+                  Understand your spending, shape better habits, and land in a dashboard that
+                  already knows what matters next. EVA keeps this setup practical by ending with a
+                  real expense instead of a dead-end welcome screen.
                 </p>
+              </div>
+              <div className="grid gap-3 text-left md:grid-cols-3">
+                {[
+                  "Your account identity is already saved from sign-up.",
+                  "Every step autosaves so you can move back safely.",
+                  "The final step becomes your first real data point in EVA.",
+                ].map((detail) => (
+                  <div
+                    key={detail}
+                    className="rounded-[1.25rem] border border-border/80 bg-background/80 p-4 text-sm leading-relaxed text-muted-foreground"
+                  >
+                    {detail}
+                  </div>
+                ))}
               </div>
               <Button size="lg" className="gap-2 px-8" onClick={moveToNext}>
                 Get Started

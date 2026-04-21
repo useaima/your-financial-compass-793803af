@@ -31,10 +31,10 @@ class EdgeFunctionsService {
     );
 
     if (response.statusCode == 401) {
-      // Try to refresh token and retry
-      await Future.delayed(const Duration(seconds: 3));
+      await Future.delayed(const Duration(seconds: 2));
+      await _supabase.auth.refreshSession();
       final newSession = _supabase.auth.currentSession;
-      if (newSession != null && newSession.accessToken != accessToken) {
+      if (newSession != null) {
         final retryHeaders = {
           ...headers,
           'Authorization': 'Bearer ${newSession.accessToken}',
