@@ -120,6 +120,15 @@ export default function Landing() {
                 <BrandLockup align="center" size="md" />
               </div>
 
+              <div className="w-full flex flex-col md:flex-row gap-6 items-center justify-center py-6">
+                <div className="relative group overflow-hidden rounded-2xl border border-border/60 shadow-xl transition-all hover:scale-[1.02]">
+                  <img src="/images/dashboard_mockup.png" alt="EVA Dashboard" className="w-64 h-auto object-cover rounded-2xl" />
+                </div>
+                <div className="relative group overflow-hidden rounded-2xl border border-border/60 shadow-xl transition-all hover:scale-[1.02]">
+                  <img src="/images/subscriptions_mockup.png" alt="EVA Subscriptions" className="w-64 h-auto object-cover rounded-2xl" />
+                </div>
+              </div>
+
               <div className="grid gap-4 text-left md:grid-cols-3">
                 <div>
                   <p className="text-[11px] uppercase tracking-[0.24em] text-muted-foreground">Understand</p>
