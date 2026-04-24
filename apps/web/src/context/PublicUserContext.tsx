@@ -171,6 +171,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
   const [saving, setSaving] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const authResolutionId = useRef(0);
+  const currentUserIdRef = useRef<string | null>(null);
   const bootstrapRef = useRef<BootstrapData>(getEmptyBootstrap());
   const currentUserId = user?.id ?? null;
   const currentUserEmail = user?.email ?? null;
@@ -252,6 +253,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
     authResolutionId.current = resolutionId;
 
     if (!nextSession) {
+      currentUserIdRef.current = null;
       setSession(null);
       setUser(null);
       setWorkspaceError(null);
@@ -260,8 +262,14 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    setAuthLoading(true);
-    setWorkspaceResolvedUserId(null);
+    const nextUserId = nextSession.user?.id ?? null;
+    const isSameUserRefresh =
+      Boolean(nextUserId) && Boolean(currentUserIdRef.current) && currentUserIdRef.current === nextUserId;
+
+    if (!isSameUserRefresh) {
+      setAuthLoading(true);
+      setWorkspaceResolvedUserId(null);
+    }
 
     try {
       const trusted = await resolveTrustedSession(nextSession, {
@@ -276,11 +284,13 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       if (!trusted.session || !trusted.user) {
         setSession(nextSession);
         setUser(nextSession.user ?? null);
+        currentUserIdRef.current = nextSession.user?.id ?? null;
         return;
       }
 
       setSession(trusted.session);
       setUser(trusted.user);
+      currentUserIdRef.current = trusted.user.id;
     } catch {
       if (authResolutionId.current !== resolutionId) {
         return;
@@ -288,6 +298,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
 
       setSession(nextSession);
       setUser(nextSession.user ?? null);
+      currentUserIdRef.current = nextSession.user?.id ?? null;
     } finally {
       if (authResolutionId.current === resolutionId) {
         setAuthLoading(false);
@@ -344,6 +355,10 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       subscription.unsubscribe();
     };
   }, [syncAuthState]);
+
+  useEffect(() => {
+    currentUserIdRef.current = user?.id ?? null;
+  }, [user?.id]);
 
   useEffect(() => {
     if (authLoading) {

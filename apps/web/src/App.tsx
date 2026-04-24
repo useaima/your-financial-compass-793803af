@@ -73,6 +73,27 @@ function FullPageLoading() {
   );
 }
 
+function InShellRouteLoading() {
+  return (
+    <div
+      data-testid="workspace-route-loading"
+      className="flex min-h-[calc(100vh-4rem)] items-start justify-center px-4 py-8 md:min-h-screen md:px-8 md:py-10"
+    >
+      <div className="w-full max-w-5xl rounded-[1.8rem] border border-border/80 bg-card/95 p-6 shadow-[0_24px_70px_-42px_rgba(110,73,75,0.22)]">
+        <div className="flex items-center gap-3">
+          <div className="h-9 w-9 animate-spin rounded-full border-2 border-primary/20 border-t-primary" />
+          <div>
+            <p className="text-sm font-semibold text-foreground">Switching sections</p>
+            <p className="text-sm text-muted-foreground">
+              eva is loading the next view in the background.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function RouteSuspense({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<FullPageLoading />}>{children}</Suspense>;
 }
@@ -155,7 +176,7 @@ function ExternalRedirect({ href }: { href: string }) {
 
 const AppPage = ({ children }: { children: React.ReactNode }) => (
   <Layout>
-    <RouteSuspense>{children}</RouteSuspense>
+    <Suspense fallback={<InShellRouteLoading />}>{children}</Suspense>
   </Layout>
 );
 

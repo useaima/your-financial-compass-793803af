@@ -18,7 +18,6 @@ import {
 import { motion } from "framer-motion";
 import BrandLockup from "@/components/BrandLockup";
 import UserProfileMenu from "@/components/UserProfileMenu";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Sheet,
   SheetContent,
@@ -153,26 +152,6 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         </div>
       </aside>
 
-      <header className="fixed inset-x-0 top-0 z-40 hidden border-b border-border/90 bg-[hsl(var(--background)/0.94)] shadow-[0_16px_32px_-28px_rgba(110,73,75,0.25)] backdrop-blur-xl md:flex">
-        <div className="flex h-16 w-full items-center justify-between gap-3 px-6 md:ml-[236px]">
-          <div className="flex min-w-0 items-center gap-3">
-            <BrandLockup
-              size="sm"
-              subtitleClassName="hidden"
-              titleClassName="text-[1.05rem]"
-              iconClassName="h-10 w-10 rounded-[0.95rem]"
-            />
-            <div className="hidden min-w-0 lg:block">
-              <p className="text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
-                Active section
-              </p>
-              <p className="truncate text-sm font-semibold text-foreground">{activeSectionLabel}</p>
-            </div>
-          </div>
-          <UserProfileMenu compact />
-        </div>
-      </header>
-
       <header className="fixed inset-x-0 top-0 z-40 border-b border-border/90 bg-[hsl(var(--background)/0.94)] shadow-[0_16px_32px_-28px_rgba(110,73,75,0.25)] backdrop-blur-xl md:hidden">
         <div data-testid="mobile-header" className="flex h-16 items-center justify-between gap-3 px-4">
           <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
@@ -190,28 +169,18 @@ export default function Layout({ children }: { children: React.ReactNode }) {
             <SheetContent
               side="left"
               data-testid="mobile-nav-drawer"
-              className="flex h-full w-[88vw] max-w-[22rem] flex-col gap-0 border-r border-border/80 bg-[hsl(var(--background)/0.98)] p-0"
+              className="flex h-dvh w-[92vw] max-w-[22rem] flex-col gap-0 overflow-hidden border-r border-border/80 bg-[hsl(var(--background)/0.98)] p-0"
             >
               <SheetHeader className="border-b border-border/80 px-5 pb-4 pt-6 text-left">
-                <div className="flex items-center justify-between gap-3">
-                  <BrandLockup
-                    size="sm"
-                    subtitleClassName="hidden"
-                    titleClassName="text-[1.05rem]"
-                    iconClassName="h-11 w-11 rounded-[1rem]"
-                  />
-                </div>
-                <div className="pt-3">
-                  <SheetTitle className="text-sm font-semibold text-foreground">
-                    Navigate eva
-                  </SheetTitle>
-                  <SheetDescription className="mt-1 text-sm text-muted-foreground">
-                    {activeSectionLabel} is active. Everything else is one tap away.
-                  </SheetDescription>
-                </div>
+                <SheetTitle className="text-sm font-semibold text-foreground">
+                  Navigation
+                </SheetTitle>
+                <SheetDescription className="mt-1 text-sm text-muted-foreground">
+                  {activeSectionLabel} is active. All sections stay available below.
+                </SheetDescription>
               </SheetHeader>
 
-              <ScrollArea className="flex-1 px-4 py-4">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 pb-8">
                 <nav data-testid="mobile-navigation" className="space-y-5 pb-6">
                   {navigationSections.map((section) => (
                     <div key={section.label} className="space-y-2">
@@ -232,24 +201,17 @@ export default function Layout({ children }: { children: React.ReactNode }) {
                     </div>
                   ))}
                 </nav>
-              </ScrollArea>
+              </div>
             </SheetContent>
           </Sheet>
 
-          <div className="min-w-0 flex-1">
-            <BrandLockup
-              size="sm"
-              subtitleClassName="hidden"
-              titleClassName="text-[1.02rem]"
-              iconClassName="h-10 w-10 rounded-[0.95rem]"
-            />
-          </div>
+          <div className="flex-1" />
 
           <UserProfileMenu compact />
         </div>
       </header>
 
-      <main data-testid="app-shell-main" className="window-controls-safe-main flex-1 px-0 pb-8 pt-16 md:ml-[236px] md:pt-16">
+      <main data-testid="app-shell-main" className="window-controls-safe-main flex-1 px-0 pb-8 pt-16 md:ml-[236px] md:pt-0">
         {children}
       </main>
     </div>
