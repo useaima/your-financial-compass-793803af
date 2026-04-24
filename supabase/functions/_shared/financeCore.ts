@@ -1,4 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import { EVA_MODELS, requestGatewayCompletion } from "./evaGateway.ts";
 
 export const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,6 +17,7 @@ type FinanceProfile = {
   phone_number: string;
   user_type: string;
   updates_opt_in: boolean;
+  model_training_opt_in: boolean;
   password_setup_completed: boolean;
   cash_balance: number;
   monthly_income: number;
@@ -101,6 +103,7 @@ type LegacyPublicProfile = {
   phone_number?: string;
   user_type: string;
   updates_opt_in: boolean;
+  model_training_opt_in?: boolean;
   password_setup_completed?: boolean;
   cash_balance: number;
   monthly_income: number;
@@ -229,10 +232,12 @@ type AffordabilityResult = {
   summary: string;
 };
 
+type DraftImportSource = "csv" | "forwarded_email" | "receipt_image";
+
 type FinanceImportJob = {
   id: string;
   user_id: string;
-  source: "csv" | "forwarded_email";
+  source: DraftImportSource;
   status: "pending_review" | "processed" | "failed";
   file_name: string | null;
   source_ref: string | null;
@@ -247,7 +252,7 @@ type FinanceDraftTransaction = {
   id: string;
   user_id: string;
   import_job_id: string | null;
-  source: "csv" | "forwarded_email";
+  source: DraftImportSource;
   transaction_date: string;
   merchant: string;
   category: string;
@@ -369,10 +374,11 @@ function parseDateInput(value: unknown, fallbackDate: string) {
 
 function buildDraftDedupeKey(input: {
   userId: string;
-  source: "csv" | "forwarded_email";
+  source: DraftImportSource;
   transactionDate: string;
   merchant: string;
   amount: number;
+  description?: string;
 }) {
   return [
     input.userId,
@@ -380,6 +386,10 @@ function buildDraftDedupeKey(input: {
     input.transactionDate,
     input.merchant.toLowerCase().replace(/\s+/g, " ").trim(),
     input.amount.toFixed(2),
+    parseString(input.description)
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim(),
   ].join("::");
 }
 
@@ -445,6 +455,51 @@ function inferCategoryFromMerchant(merchant: string, description: string) {
   if (/(pharmacy|clinic|doctor|health)/.test(haystack)) return "Health";
   if (/(amazon|shop|mall|store|shopping)/.test(haystack)) return "Shopping";
   return "Other";
+}
+
+function readGatewayContentText(content: unknown) {
+  if (typeof content === "string") {
+    return content;
+  }
+
+  if (!Array.isArray(content)) {
+    return "";
+  }
+
+  return content
+    .map((part) => {
+      if (typeof part === "string") {
+        return part;
+      }
+
+      if (part && typeof part === "object" && "text" in part) {
+        return typeof part.text === "string" ? part.text : "";
+      }
+
+      return "";
+    })
+    .join("")
+    .trim();
+}
+
+function parseGatewayJson<T>(content: unknown) {
+  const raw = readGatewayContentText(content);
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
+
+  try {
+    return JSON.parse(normalized) as T;
+  } catch (error) {
+    console.error("finance-core gateway JSON parse error:", error, normalized);
+    return null;
+  }
 }
 
 export function getLegacyPublicUserId(value: unknown) {
@@ -1200,6 +1255,9 @@ function mapLegacyProfileToFinanceProfile(
     updates_opt_in: parseBoolean(
       profile.updates_opt_in ?? existingProfile?.updates_opt_in ?? true,
     ),
+    model_training_opt_in: parseBoolean(
+      profile.model_training_opt_in ?? existingProfile?.model_training_opt_in ?? false,
+    ),
     password_setup_completed: parseBoolean(
       profile.password_setup_completed ?? existingProfile?.password_setup_completed ?? false,
     ),
@@ -1440,7 +1498,7 @@ export async function replaceOnboardingData(
 
 function normalizeDraftTransactionInput(input: {
   userId: string;
-  source: "csv" | "forwarded_email";
+  source: DraftImportSource;
   transactionDate: string;
   merchant: string;
   category?: string;
@@ -1453,8 +1511,10 @@ function normalizeDraftTransactionInput(input: {
   const description = parseString(input.description, merchant);
   const transactionDate = parseDateInput(input.transactionDate, toIsoDate(new Date()));
   const amount = Math.abs(parseNumber(input.amount));
-  const category =
-    normalizeCategory(input.category) || inferCategoryFromMerchant(merchant, description);
+  const providedCategory = parseString(input.category);
+  const category = providedCategory
+    ? normalizeCategory(providedCategory)
+    : inferCategoryFromMerchant(merchant, description);
 
   return {
     user_id: input.userId,
@@ -1471,6 +1531,7 @@ function normalizeDraftTransactionInput(input: {
       transactionDate,
       merchant,
       amount,
+      description,
     }),
     raw_payload: input.rawPayload ?? {},
   };
@@ -1504,7 +1565,7 @@ async function createDraftTransactions(
   admin: ReturnType<typeof createAdminClient>,
   params: {
     userId: string;
-    source: "csv" | "forwarded_email";
+    source: DraftImportSource;
     fileName?: string | null;
     sourceRef?: string | null;
     drafts: Array<{
@@ -1597,6 +1658,147 @@ async function createDraftTransactions(
     importedCount,
     duplicateCount,
   };
+}
+
+type ReceiptImageAnalysis = {
+  merchant?: unknown;
+  transaction_date?: unknown;
+  currency?: unknown;
+  total?: unknown;
+  summary?: unknown;
+  items?: Array<{
+    description?: unknown;
+    amount?: unknown;
+    category?: unknown;
+  }>;
+};
+
+export async function analyzeReceiptImage(
+  userId: string,
+  imageDataUrl: string,
+  fileName: string | null = null,
+) {
+  if (!imageDataUrl.startsWith("data:image/")) {
+    throw new Error("Please upload a valid receipt photo.");
+  }
+
+  const response = await requestGatewayCompletion({
+    model: EVA_MODELS.conversation,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You extract structured spending data from receipt, supermarket slip, or till-check images. Return only valid JSON with this shape: " +
+          '{"merchant":"string","transaction_date":"YYYY-MM-DD","currency":"USD","total":0,"summary":"string","items":[{"description":"string","amount":0,"category":"Food"}]}. ' +
+          "Allowed categories: Food, Transport, Entertainment, Shopping, Bills, Health, Education, Subscriptions, Groceries, Personal Care, Other. " +
+          "If line items are readable, return multiple items. If only the total is readable, return one item using the best description you can ground from the image. " +
+          "Do not invent hidden items. Use Other when the category is unclear.",
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              `Analyze this receipt photo and extract grounded spending data. ` +
+              `File name: ${fileName ?? "receipt-photo"}.`,
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: imageDataUrl,
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!response?.ok) {
+    if (response) {
+      console.error("receipt analysis gateway error:", response.status, await response.text());
+    }
+    throw new Error("We could not analyze that receipt photo right now.");
+  }
+
+  const responseData = await response.json().catch(() => null);
+  const parsed = parseGatewayJson<ReceiptImageAnalysis>(
+    responseData?.choices?.[0]?.message?.content,
+  );
+
+  if (!parsed) {
+    throw new Error("We could not read the receipt clearly enough. Try a sharper photo.");
+  }
+
+  const merchant = parseString(
+    parsed.merchant,
+    fileName?.replace(/\.[^.]+$/, "").replace(/[-_]+/g, " ") || "Receipt photo",
+  );
+  const summary = parseString(parsed.summary, merchant);
+  const transactionDate = parseDateInput(parsed.transaction_date ?? new Date(), toIsoDate(new Date()));
+  const currency = parseString(parsed.currency, "USD") || "USD";
+  const total = Math.abs(parseNumber(parsed.total));
+  const analyzedItems = Array.isArray(parsed.items)
+    ? parsed.items
+        .map((item) => ({
+          description: parseString(item?.description, summary),
+          amount: Math.abs(parseNumber(item?.amount)),
+          category: (() => {
+            const providedCategory = parseString(item?.category);
+            if (providedCategory) {
+              return normalizeCategory(providedCategory);
+            }
+
+            return inferCategoryFromMerchant(merchant, parseString(item?.description, summary));
+          })(),
+        }))
+        .filter((item) => item.amount > 0)
+    : [];
+
+  const drafts =
+    analyzedItems.length > 0
+      ? analyzedItems.map((item) => ({
+          transactionDate,
+          merchant,
+          category: item.category,
+          amount: item.amount,
+          currency,
+          description: item.description,
+          rawPayload: {
+            file_name: fileName,
+            analysis: parsed,
+          },
+        }))
+      : total > 0
+        ? [
+            {
+              transactionDate,
+              merchant,
+              category: inferCategoryFromMerchant(merchant, summary),
+              amount: total,
+              currency,
+              description: summary,
+              rawPayload: {
+                file_name: fileName,
+                analysis: parsed,
+              },
+            },
+          ]
+        : [];
+
+  if (drafts.length === 0) {
+    throw new Error("We could not find any amounts in that photo. Try a clearer receipt image.");
+  }
+
+  const admin = createAdminClient();
+  return createDraftTransactions(admin, {
+    userId,
+    source: "receipt_image",
+    fileName,
+    sourceRef: fileName,
+    drafts,
+  });
 }
 
 export async function importCsvTransactions(
@@ -1754,7 +1956,12 @@ export async function reviewDraftTransaction(
       ],
       raw_input: normalized.description,
       total: normalized.amount,
-      source: draft.source === "csv" ? "csv_import" : "forwarded_email",
+      source:
+        draft.source === "csv"
+          ? "csv_import"
+          : draft.source === "receipt_image"
+            ? "receipt_image"
+            : "forwarded_email",
     });
 
     if (insertError) throw insertError;

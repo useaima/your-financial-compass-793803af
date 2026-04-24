@@ -140,6 +140,13 @@ export async function importCsvTransactions(csvText: string, fileName: string) {
   });
 }
 
+export async function analyzeReceiptImage(imageDataUrl: string, fileName: string) {
+  return invokeWorkspace<BootstrapData>("analyze_receipt_image", {
+    image_data_url: imageDataUrl,
+    file_name: fileName,
+  });
+}
+
 export async function reviewDraftTransaction(input: {
   draftTransactionId: string;
   decision: "approve" | "reject" | "edit";

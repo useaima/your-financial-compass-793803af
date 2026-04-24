@@ -12,7 +12,7 @@ export function getEvaGatewayApiKey() {
 
 type GatewayRequest = {
   model: string;
-  messages: Array<{ role: string; content: string }>;
+  messages: Array<{ role: string; content: unknown }>;
   tools?: unknown[];
   tool_choice?: unknown;
   stream?: boolean;

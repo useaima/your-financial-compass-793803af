@@ -15,6 +15,7 @@ export interface UserProfile {
   phone_number: string;
   user_type: UserType;
   updates_opt_in: boolean;
+  model_training_opt_in: boolean;
   password_setup_completed: boolean;
   cash_balance: number;
   monthly_income: number;
@@ -218,7 +219,7 @@ export interface GoalStatus {
   status: "on_track" | "needs_attention" | "achieved";
 }
 
-export type ImportSource = "csv" | "forwarded_email";
+export type ImportSource = "csv" | "forwarded_email" | "receipt_image";
 
 export interface ImportJob {
   id: string;
@@ -310,6 +311,7 @@ export interface OnboardingPayload {
     phone_number: string;
     user_type: UserType;
     updates_opt_in: boolean;
+    model_training_opt_in?: boolean;
     password_setup_completed: boolean;
     cash_balance: number;
     monthly_income: number;

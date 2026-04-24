@@ -15,6 +15,7 @@ import {
   SUPABASE_SETUP_MESSAGE,
 } from "@/integrations/supabase/client";
 import {
+  analyzeReceiptImage as analyzeWorkspaceReceiptImage,
   checkAffordability as requestAffordabilityCheck,
   completeOnboarding,
   deleteBudgetLimit,
@@ -110,6 +111,7 @@ type PublicUserContextValue = {
     cadence?: "one_time" | "monthly";
   }) => Promise<AffordabilityResult>;
   importCsvTransactions: (csvText: string, fileName: string) => Promise<void>;
+  analyzeReceiptImage: (imageDataUrl: string, fileName: string) => Promise<void>;
   reviewDraftTransaction: (input: {
     draftTransactionId: string;
     decision: "approve" | "reject" | "edit";
@@ -634,6 +636,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       checkAffordability: async (input) => requestAffordabilityCheck(input),
       importCsvTransactions: async (csvText, fileName) =>
         runMutation(() => importWorkspaceCsvTransactions(csvText, fileName)),
+      analyzeReceiptImage: async (imageDataUrl, fileName) =>
+        runMutation(() => analyzeWorkspaceReceiptImage(imageDataUrl, fileName)),
       reviewDraftTransaction: async (input) =>
         runMutation(() => reviewWorkspaceDraftTransaction(input)),
       markNotificationRead: async (notificationId) =>

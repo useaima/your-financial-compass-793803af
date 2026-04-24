@@ -223,6 +223,7 @@ export default function Settings() {
     phone_number: "",
     user_type: "personal" as "personal" | "business",
     updates_opt_in: true,
+    model_training_opt_in: false,
     cash_balance: "",
     monthly_income: "",
     monthly_fixed_expenses: "",
@@ -255,6 +256,7 @@ export default function Settings() {
       user_type:
         bootstrap.profile.user_type === "business" ? "business" : "personal",
       updates_opt_in: bootstrap.profile.updates_opt_in,
+      model_training_opt_in: bootstrap.profile.model_training_opt_in ?? false,
       cash_balance: String(bootstrap.profile.cash_balance ?? 0),
       monthly_income: String(bootstrap.profile.monthly_income ?? 0),
       monthly_fixed_expenses: String(bootstrap.profile.monthly_fixed_expenses ?? 0),
@@ -271,7 +273,7 @@ export default function Settings() {
   }, [permission]);
 
   const sectionMeta = SETTINGS_SECTIONS[activeSection];
-  const sectionIcon = sectionMeta.icon;
+  const SectionIcon = sectionMeta.icon;
   const currentTheme = theme === "light" || theme === "dark" ? theme : "system";
   const memberSince = useMemo(() => {
     if (!bootstrap.profile?.created_at) {
@@ -294,6 +296,7 @@ export default function Settings() {
         phone_number: form.phone_number.trim(),
         user_type: form.user_type,
         updates_opt_in: form.updates_opt_in,
+        model_training_opt_in: form.model_training_opt_in,
         cash_balance: Number(form.cash_balance || 0),
         monthly_income: Number(form.monthly_income || 0),
         monthly_fixed_expenses: Number(form.monthly_fixed_expenses || 0),
@@ -485,7 +488,7 @@ export default function Settings() {
           <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="space-y-2">
               <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-primary">
-                <sectionIcon className="h-3.5 w-3.5" />
+                <SectionIcon className="h-3.5 w-3.5" />
                 {sectionMeta.title}
               </div>
               <div>
@@ -573,6 +576,40 @@ export default function Settings() {
               eva is using a {currentTheme === "system" ? "system-controlled" : currentTheme} theme, {preferences.fontScale}px base text, and{" "}
               {preferences.reducedMotion ? "reduced motion" : "standard motion"}.
             </p>
+          </div>
+
+          <div className="space-y-4 rounded-2xl border border-border/75 bg-background/80 p-4">
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-foreground">Model training consent</p>
+              <p className="text-xs text-muted-foreground">
+                If eva ever uses personal finance data to improve future models, we will respect this choice. Leaving it off keeps your data out of those training programs.
+              </p>
+            </div>
+            <div className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4">
+              <div className="space-y-1 pr-4">
+                <p className="text-sm font-semibold text-foreground">Allow my data to improve eva</p>
+                <p className="text-xs text-muted-foreground">
+                  This only stores your consent preference. Your budgeting features work either way.
+                </p>
+              </div>
+              <Switch
+                checked={form.model_training_opt_in}
+                onCheckedChange={(value) =>
+                  setForm((current) => ({ ...current, model_training_opt_in: value }))
+                }
+                aria-label="Toggle model training consent"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full gap-2"
+              onClick={handleSave}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? "Saving..." : "Save data preferences"}
+            </Button>
           </div>
         </SectionSurface>
       )}

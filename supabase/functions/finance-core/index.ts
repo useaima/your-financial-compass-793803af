@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import {
+  analyzeReceiptImage,
   buildAffordabilityResult,
   buildBootstrap,
   corsHeaders,
@@ -229,6 +230,12 @@ serve(async (req) => {
       const csvText = String(body.csv_text ?? "");
       const fileName = typeof body.file_name === "string" ? body.file_name : null;
       await importCsvTransactions(user.id, csvText, fileName);
+    }
+
+    if (action === "analyze_receipt_image") {
+      const imageDataUrl = String(body.image_data_url ?? "");
+      const fileName = typeof body.file_name === "string" ? body.file_name : null;
+      await analyzeReceiptImage(user.id, imageDataUrl, fileName);
     }
 
     if (action === "review_draft_transaction") {

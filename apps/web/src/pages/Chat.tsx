@@ -103,8 +103,7 @@ export default function Chat() {
       const assistantMsg: Msg = {
         role: "assistant",
         content:
-          `I can check whether you can afford ${subject} based on your finances. ` +
-          `Send me the price and whether it is a one-time purchase or a monthly payment, and I will give you a concise affordability check.`,
+          `I can help with that. I just need the price for ${subject} and whether it is a one-time cost or a monthly payment, then I will give you a quick affordability check based on your finances.`,
       };
       setMessages((prev) => [...prev, assistantMsg]);
       addEntry({ type: "msg", msg: assistantMsg });

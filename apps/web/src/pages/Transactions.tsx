@@ -1,6 +1,6 @@
 import { useMemo, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { Check, Copy, FileUp, Mail, PencilLine, Search, X } from "lucide-react";
+import { Camera, Check, Copy, FileUp, Mail, PencilLine, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { Button } from "@/components/ui/button";
@@ -39,9 +39,65 @@ const fadeUp = {
   }),
 };
 
+function getImportSourceLabel(source: "csv" | "forwarded_email" | "receipt_image") {
+  if (source === "csv") return "CSV import";
+  if (source === "receipt_image") return "Receipt photo";
+  return "Forwarded receipt";
+}
+
+function fileToDataUrl(file: File) {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === "string") {
+        resolve(reader.result);
+        return;
+      }
+
+      reject(new Error("We could not read that image."));
+    };
+    reader.onerror = () => reject(new Error("We could not read that image."));
+    reader.readAsDataURL(file);
+  });
+}
+
+async function optimizeReceiptImage(file: File) {
+  const dataUrl = await fileToDataUrl(file);
+
+  if (typeof window === "undefined") {
+    return dataUrl;
+  }
+
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const nextImage = new window.Image();
+    nextImage.onload = () => resolve(nextImage);
+    nextImage.onerror = () => reject(new Error("We could not open that receipt photo."));
+    nextImage.src = dataUrl;
+  });
+
+  const maxDimension = 1600;
+  const scale = Math.min(1, maxDimension / Math.max(image.width, image.height));
+  const width = Math.max(1, Math.round(image.width * scale));
+  const height = Math.max(1, Math.round(image.height * scale));
+
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+
+  const context = canvas.getContext("2d");
+  if (!context) {
+    return dataUrl;
+  }
+
+  // Shrink large receipt photos before sending them through the finance-core edge function.
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", 0.82);
+}
+
 export default function Transactions() {
   const {
     bootstrap,
+    analyzeReceiptImage,
     importCsvTransactions,
     reviewDraftTransaction,
     userId,
@@ -49,6 +105,7 @@ export default function Transactions() {
   const [filter, setFilter] = useState<SpendingCategory | "All">("All");
   const [search, setSearch] = useState("");
   const [importing, setImporting] = useState(false);
+  const [receiptImporting, setReceiptImporting] = useState(false);
   const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
   const [receiptGateOpen, setReceiptGateOpen] = useState(false);
   const [reviewGateOpen, setReviewGateOpen] = useState(false);
@@ -60,6 +117,8 @@ export default function Transactions() {
     description: "",
   });
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const receiptImageInputRef = useRef<HTMLInputElement | null>(null);
+  const receiptCameraInputRef = useRef<HTMLInputElement | null>(null);
   const {
     hasVerifiedMfa,
     loading: mfaLoading,
@@ -214,6 +273,32 @@ export default function Transactions() {
     }
   };
 
+  const handleReceiptPhoto = async (file: File | null) => {
+    if (!file) {
+      return;
+    }
+
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please choose a receipt image.");
+      return;
+    }
+
+    setReceiptImporting(true);
+    try {
+      const optimizedImage = await optimizeReceiptImage(file);
+      await analyzeReceiptImage(optimizedImage, file.name || "receipt-photo.jpg");
+      toast.success("Receipt photo analyzed and added to your review queue.");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "We could not analyze that receipt photo.",
+      );
+    } finally {
+      setReceiptImporting(false);
+      if (receiptImageInputRef.current) receiptImageInputRef.current.value = "";
+      if (receiptCameraInputRef.current) receiptCameraInputRef.current.value = "";
+    }
+  };
+
   return (
     <div data-testid="transactions-shell" className="mx-auto max-w-[980px] space-y-5 p-4 md:p-8">
       <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }}>
@@ -238,7 +323,7 @@ export default function Transactions() {
           {
             label: "Recent import jobs",
             value: bootstrap.import_jobs.length,
-            detail: "Latest import attempts across files and receipts",
+            detail: "Latest import attempts across files, photos, and receipts",
           },
         ].map((stat, index) => (
           <motion.div
@@ -304,6 +389,62 @@ export default function Transactions() {
           className="rounded-[1.5rem] border border-border bg-card p-5"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+            Receipt photos
+          </p>
+          <h2 className="mt-2 text-lg font-semibold text-foreground">
+            Upload or snap a receipt and let EVA prepare the draft items
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            Share a supermarket receipt, till check, or paper slip. EVA will extract the grounded amounts it can read, group them into sensible categories, and send them into your review queue.
+          </p>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="transactions-upload-receipt-photo"
+              onClick={() => receiptImageInputRef.current?.click()}
+              disabled={receiptImporting}
+              className="gap-2"
+            >
+              <FileUp className="h-4 w-4" />
+              {receiptImporting ? "Analyzing..." : "Upload photo"}
+            </Button>
+            <Button
+              type="button"
+              data-testid="transactions-take-receipt-photo"
+              onClick={() => receiptCameraInputRef.current?.click()}
+              disabled={receiptImporting}
+              className="gap-2"
+            >
+              <Camera className="h-4 w-4" />
+              {receiptImporting ? "Opening camera..." : "Take photo"}
+            </Button>
+          </div>
+          <input
+            ref={receiptImageInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(event) => void handleReceiptPhoto(event.target.files?.[0] ?? null)}
+          />
+          <input
+            ref={receiptCameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(event) => void handleReceiptPhoto(event.target.files?.[0] ?? null)}
+          />
+        </motion.div>
+      </div>
+
+      <motion.div
+        initial={{ opacity: 0, y: 8 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.08 }}
+        className="rounded-[1.5rem] border border-border bg-card p-5"
+      >
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
             Forward receipts
           </p>
           <h2 className="mt-2 text-lg font-semibold text-foreground">
@@ -334,8 +475,7 @@ export default function Transactions() {
             </a>
             .
           </p>
-        </motion.div>
-      </div>
+      </motion.div>
 
       {bootstrap.import_jobs.length > 0 && (
         <div data-testid="transactions-import-jobs" className="space-y-3 rounded-[1.5rem] border border-border bg-card p-5">
@@ -353,7 +493,7 @@ export default function Transactions() {
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-foreground">
-                      {job.file_name || job.source_ref || (job.source === "csv" ? "CSV import" : "Forwarded receipt")}
+                      {job.file_name || job.source_ref || getImportSourceLabel(job.source)}
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {job.imported_count} draft(s) created · {job.duplicate_count} duplicate(s) skipped
@@ -398,8 +538,8 @@ export default function Transactions() {
                 variants={fadeUp}
                 className="rounded-2xl border border-border/80 bg-background/90 p-4"
               >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="space-y-1">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 space-y-1">
                     <p className="text-sm font-semibold text-foreground">{draft.merchant}</p>
                     <p className="text-xs text-muted-foreground">
                       {new Date(draft.transaction_date).toLocaleDateString("en-US", {
@@ -407,11 +547,11 @@ export default function Transactions() {
                         day: "numeric",
                         year: "numeric",
                       })}{" "}
-                      · {draft.source === "csv" ? "CSV import" : "Forwarded receipt"}
+                      · {getImportSourceLabel(draft.source)}
                     </p>
-                    <p className="text-sm text-muted-foreground">{draft.description}</p>
+                    <p className="break-words text-sm text-muted-foreground">{draft.description}</p>
                   </div>
-                  <div className="text-right">
+                  <div className="sm:text-right">
                     <span
                       className="inline-flex rounded-full px-2 py-1 text-[10px] font-medium"
                       style={{
@@ -428,16 +568,36 @@ export default function Transactions() {
                   </div>
                 </div>
 
-                <div className="mt-4 flex flex-wrap gap-2">
-                    <Button data-testid={`draft-approve-${draft.id}`} type="button" size="sm" className="gap-1.5" onClick={() => handleReviewDecision(draft.id, "approve")}>
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                  <Button
+                    data-testid={`draft-approve-${draft.id}`}
+                    type="button"
+                    size="sm"
+                    className="gap-1.5 sm:w-auto"
+                    onClick={() => handleReviewDecision(draft.id, "approve")}
+                  >
                     <Check className="h-3.5 w-3.5" />
                     Approve
                   </Button>
-                    <Button data-testid={`draft-edit-${draft.id}`} type="button" size="sm" variant="outline" className="gap-1.5" onClick={() => openDraftEditor(draft.id)}>
+                  <Button
+                    data-testid={`draft-edit-${draft.id}`}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 sm:w-auto"
+                    onClick={() => openDraftEditor(draft.id)}
+                  >
                     <PencilLine className="h-3.5 w-3.5" />
                     Edit
                   </Button>
-                    <Button data-testid={`draft-reject-${draft.id}`} type="button" size="sm" variant="outline" className="gap-1.5 text-destructive hover:text-destructive" onClick={() => handleReviewDecision(draft.id, "reject")}>
+                  <Button
+                    data-testid={`draft-reject-${draft.id}`}
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="gap-1.5 text-destructive hover:text-destructive sm:w-auto"
+                    onClick={() => handleReviewDecision(draft.id, "reject")}
+                  >
                     <X className="h-3.5 w-3.5" />
                     Reject
                   </Button>
@@ -522,25 +682,33 @@ export default function Transactions() {
                     initial="hidden"
                     animate="visible"
                     variants={fadeUp}
-                    className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-primary/15"
+                    className="rounded-xl border border-border bg-card px-4 py-3 transition-colors hover:border-primary/15"
                   >
-                    <span className="text-lg">{SPENDING_CATEGORY_ICONS[transaction.category]}</span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{transaction.merchant}</p>
-                      <p className="text-[11px] text-muted-foreground">{transaction.category}</p>
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 text-lg">{SPENDING_CATEGORY_ICONS[transaction.category]}</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                          <div className="min-w-0">
+                            <p className="break-words text-sm font-medium">{transaction.merchant}</p>
+                            <p className="text-[11px] text-muted-foreground">{transaction.category}</p>
+                          </div>
+                          <span className="text-sm font-semibold tabular-nums text-foreground">
+                            {formatCurrencyDetailed(transaction.amount)}
+                          </span>
+                        </div>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className="rounded-full px-2 py-1 text-[10px] font-medium"
+                            style={{
+                              backgroundColor: `${SPENDING_CATEGORY_COLORS[transaction.category]}15`,
+                              color: SPENDING_CATEGORY_COLORS[transaction.category],
+                            }}
+                          >
+                            {transaction.category}
+                          </span>
+                        </div>
+                      </div>
                     </div>
-                    <span
-                      className="rounded-full px-2 py-1 text-[10px] font-medium"
-                      style={{
-                        backgroundColor: `${SPENDING_CATEGORY_COLORS[transaction.category]}15`,
-                        color: SPENDING_CATEGORY_COLORS[transaction.category],
-                      }}
-                    >
-                      {transaction.category}
-                    </span>
-                    <span className="text-sm font-semibold tabular-nums text-foreground">
-                      {formatCurrencyDetailed(transaction.amount)}
-                    </span>
                   </motion.div>
                 ))}
               </div>
