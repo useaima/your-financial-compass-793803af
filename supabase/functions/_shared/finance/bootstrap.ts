@@ -25,6 +25,8 @@ export function mapLegacyProfileToFinanceProfile(
   legacyPublicUserId: string | null,
   existingProfile?: Partial<FinanceProfile> | null,
 ) {
+  const profileInput = profile as Record<string, unknown>;
+
   return {
     user_id: userId,
     legacy_public_user_id:
@@ -43,9 +45,9 @@ export function mapLegacyProfileToFinanceProfile(
     model_training_opt_in: parseBoolean(
       profile.model_training_opt_in ?? existingProfile?.model_training_opt_in ?? false,
     ),
-    agent_mode: normalizeAgentMode(profile.agent_mode ?? existingProfile?.agent_mode),
+    agent_mode: normalizeAgentMode(profileInput.agent_mode ?? existingProfile?.agent_mode),
     autopilot_high_risk_enabled: parseBoolean(
-      profile.autopilot_high_risk_enabled ?? existingProfile?.autopilot_high_risk_enabled ?? false,
+      profileInput.autopilot_high_risk_enabled ?? existingProfile?.autopilot_high_risk_enabled ?? false,
     ),
     password_setup_completed: parseBoolean(
       profile.password_setup_completed ?? existingProfile?.password_setup_completed ?? false,
