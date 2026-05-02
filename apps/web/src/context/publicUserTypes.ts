@@ -1,6 +1,7 @@
 import type { Session, User } from "@supabase/supabase-js";
 import type {
   AffordabilityResult,
+  AgentMode,
   BootstrapData,
   BudgetLimit,
   DraftTransaction,
@@ -58,6 +59,11 @@ export type PublicUserContextValue = {
   refresh: () => Promise<void>;
   completeOnboarding: (payload: OnboardingPayload) => Promise<void>;
   updateProfile: (payload: Partial<UserProfile>) => Promise<void>;
+  updateAgentMode: (input: {
+    agentMode: AgentMode;
+    autopilotHighRiskEnabled?: boolean;
+  }) => Promise<void>;
+  runAgentPlanner: () => Promise<void>;
   saveGoal: (goal: Partial<UserGoal>) => Promise<void>;
   deleteGoal: (goalId: string) => Promise<void>;
   saveBudgetLimit: (limit: Partial<BudgetLimit>) => Promise<void>;
@@ -84,6 +90,32 @@ export type PublicUserContextValue = {
   getReceiptForwardingAddress: (
     securityVerificationId: string,
   ) => Promise<ReceiptForwardingDetails>;
+  proposeSubscriptionAction: (input: {
+    subscriptionId: string;
+    proposalAction: "cancel" | "review";
+    reason?: string | null;
+  }) => Promise<void>;
+  proposeBillAction: (input: {
+    merchant: string;
+    amount?: number;
+    dueDate?: string | null;
+    note?: string | null;
+    proposalAction: "bill_reminder" | "merchant_follow_up";
+  }) => Promise<void>;
+  approveRequest: (input: {
+    approvalRequestId: string;
+    securityVerificationId: string;
+  }) => Promise<void>;
+  rejectRequest: (input: {
+    approvalRequestId: string;
+    reason?: string | null;
+  }) => Promise<void>;
+  dispatchApprovedRequest: (approvalRequestId: string) => Promise<void>;
+  reconcileExecutionResult: (input: {
+    executionReceiptId: string;
+    outcome: "completed" | "failed" | "cancelled";
+    note?: string | null;
+  }) => Promise<void>;
   reviewDraftTransaction: (input: {
     draftTransactionId: string;
     decision: "approve" | "reject" | "edit";

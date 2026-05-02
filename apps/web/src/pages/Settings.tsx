@@ -3,6 +3,8 @@ import { format } from "date-fns";
 import { motion } from "framer-motion";
 import { useTheme } from "next-themes";
 import {
+  Bell,
+  Bot,
   Building2,
   HelpCircle,
   Loader2,
@@ -10,7 +12,9 @@ import {
   MessageCircle,
   MoonStar,
   Save,
+  Shield,
   SlidersHorizontal,
+  User,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -28,7 +32,6 @@ import {
   SETTINGS_SECTIONS,
   type NotificationPreferences,
 } from "@/features/settings/settingsView";
-import { usePushNotifications } from "@/hooks/usePushNotifications";
 import {
   BUDGETING_FOCUS_OPTIONS,
   COUNTRIES,
@@ -39,6 +42,7 @@ import {
   type FontScale,
   type SettingsSection,
 } from "@/lib/appPreferences";
+import type { AgentMode } from "@/lib/evaContracts";
 import { SUPPORT_LINKS } from "@/lib/supportLinks";
 import { cn } from "@/lib/utils";
 
@@ -47,10 +51,9 @@ export default function Settings() {
   const requestedSection = searchParams.get("section");
   const activeSection = normalizeSettingsSection(requestedSection);
 
-  const { bootstrap, markNotificationRead, updateProfile, saving, signOut, user } = usePublicUser();
+  const { bootstrap, markNotificationRead, updateAgentMode, updateProfile, saving, signOut, user } = usePublicUser();
   const { preferences, setFontScale, setReducedMotion } = useAppPreferences();
   const { theme, setTheme } = useTheme();
-  const { isSupported, permission, requestPermission } = usePushNotifications();
 
   const [feedbackMsg, setFeedbackMsg] = useState("");
   const [feedbackSent, setFeedbackSent] = useState(false);
@@ -63,6 +66,8 @@ export default function Settings() {
     user_type: "personal" as "personal" | "business",
     updates_opt_in: true,
     model_training_opt_in: false,
+    agent_mode: "manual" as AgentMode,
+    autopilot_high_risk_enabled: false,
     cash_balance: "",
     monthly_income: "",
     monthly_fixed_expenses: "",
@@ -86,6 +91,8 @@ export default function Settings() {
         bootstrap.profile.user_type === "business" ? "business" : "personal",
       updates_opt_in: bootstrap.profile.updates_opt_in,
       model_training_opt_in: bootstrap.profile.model_training_opt_in ?? false,
+      agent_mode: bootstrap.profile.agent_mode ?? "manual",
+      autopilot_high_risk_enabled: bootstrap.profile.autopilot_high_risk_enabled ?? false,
       cash_balance: String(bootstrap.profile.cash_balance ?? 0),
       monthly_income: String(bootstrap.profile.monthly_income ?? 0),
       monthly_fixed_expenses: String(bootstrap.profile.monthly_fixed_expenses ?? 0),
@@ -94,12 +101,6 @@ export default function Settings() {
     });
   }, [bootstrap.profile]);
 
-  useEffect(() => {
-    setNotifPrefs((current) => ({
-      ...current,
-      pushEnabled: permission === "granted",
-    }));
-  }, [permission]);
 
   const sectionMeta = SETTINGS_SECTIONS[activeSection];
   const SectionIcon = sectionMeta.icon;
@@ -139,6 +140,20 @@ export default function Settings() {
     }
   };
 
+  const handleSaveAgentMode = async () => {
+    try {
+      await updateAgentMode({
+        agentMode: form.agent_mode,
+        autopilotHighRiskEnabled: form.autopilot_high_risk_enabled,
+      });
+      toast.success("Agent mode updated");
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : "Unable to save agent mode right now.",
+      );
+    }
+  };
+
   const handleSignOut = async () => {
     try {
       await signOut();
@@ -161,6 +176,24 @@ export default function Settings() {
     { id: "17", label: "17 px", detail: "Balanced default for most users." },
     { id: "18", label: "18 px", detail: "More breathing room for reading." },
     { id: "20", label: "20 px", detail: "Largest supported size for extra comfort." },
+  ];
+
+  const agentModeChoices: Array<{ id: AgentMode; label: string; detail: string }> = [
+    {
+      id: "manual",
+      label: "Manual",
+      detail: "You create every proposal yourself. This is the safest default.",
+    },
+    {
+      id: "assisted",
+      label: "Assisted",
+      detail: "EVA suggests proposal ideas, but you choose when to create them.",
+    },
+    {
+      id: "autopilot",
+      label: "Autopilot",
+      detail: "EVA may create low/medium-risk proposals. You still approve before any action.",
+    },
   ];
 
   const notificationItems = useMemo(
@@ -530,6 +563,58 @@ export default function Settings() {
             </div>
           </div>
 
+          <div className="rounded-2xl border border-border bg-background/80 p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Bot className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-foreground">Agent mode</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Phase G is proposal-only. EVA can prepare approval requests, but it cannot dispatch or complete anything without your explicit email-verified approval.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid gap-3 md:grid-cols-3">
+              {agentModeChoices.map((choice) => (
+                <PreferenceOption
+                  key={choice.id}
+                  active={form.agent_mode === choice.id}
+                  label={choice.label}
+                  detail={choice.detail}
+                  onClick={() =>
+                    setForm((current) => ({ ...current, agent_mode: choice.id }))
+                  }
+                />
+              ))}
+            </div>
+            <div className="mt-4 flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-4">
+              <div className="space-y-1 pr-4">
+                <p className="text-sm font-semibold text-foreground">Allow high-risk proposal drafting</p>
+                <p className="text-xs text-muted-foreground">
+                  Keep this off for launch. High-risk proposals stay manual unless you deliberately enable drafting later.
+                </p>
+              </div>
+              <Switch
+                checked={form.autopilot_high_risk_enabled}
+                onCheckedChange={(value) =>
+                  setForm((current) => ({ ...current, autopilot_high_risk_enabled: value }))
+                }
+                aria-label="Toggle high-risk proposal drafting"
+              />
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-4 w-full gap-2"
+              onClick={handleSaveAgentMode}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? "Saving..." : "Save agent mode"}
+            </Button>
+          </div>
+
           <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
             <p className="text-sm font-semibold text-foreground">Security verification</p>
             <p className="mt-2 text-sm text-muted-foreground">
@@ -586,26 +671,6 @@ export default function Settings() {
           subtitle="Choose the nudges, alerts, and recaps that should reach you."
           icon={Bell}
         >
-          {isSupported && (
-            <div className="flex items-center justify-between rounded-2xl border border-border bg-background/80 px-4 py-4">
-              <div>
-                <p className="text-sm font-semibold text-foreground">Push notifications</p>
-                <p className="text-xs text-muted-foreground">
-                  {permission === "granted"
-                    ? "Enabled in this browser"
-                    : permission === "denied"
-                      ? "Blocked by this browser"
-                      : "Allow notifications for real-time reminders and insights"}
-                </p>
-              </div>
-              <Switch
-                checked={permission === "granted"}
-                onCheckedChange={() => requestPermission()}
-                disabled={permission === "denied"}
-              />
-            </div>
-          )}
-
           {notificationItems.map((item) => (
             <div
               key={item.key}
@@ -764,8 +829,8 @@ export default function Settings() {
                 href: SUPPORT_LINKS.statementErrors,
               },
               {
-                title: "Network and offline recovery",
-                desc: "Use the offline guide when EVA cannot reach the server or your connection drops mid-session.",
+                title: "Network recovery",
+                desc: "Use this guide when EVA cannot reach the server or your connection drops mid-session.",
                 href: SUPPORT_LINKS.offline,
               },
               {

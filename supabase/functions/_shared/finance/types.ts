@@ -1,3 +1,7 @@
+export type AgentMode = "manual" | "assisted" | "autopilot";
+export type ExecutionProvider = "manual_external_account" | "utg";
+export type ExecutionDispatchStatus = "not_dispatched" | "dispatch_pending" | "dispatched" | "dispatch_failed";
+
 export type FinanceProfile = {
   user_id: string;
   legacy_public_user_id: string | null;
@@ -8,6 +12,8 @@ export type FinanceProfile = {
   user_type: string;
   updates_opt_in: boolean;
   model_training_opt_in: boolean;
+  agent_mode: AgentMode;
+  autopilot_high_risk_enabled: boolean;
   password_setup_completed: boolean;
   cash_balance: number;
   monthly_income: number;
@@ -228,7 +234,8 @@ export type SensitiveActionId =
   | "generate_statement"
   | "review_draft_transaction"
   | "receipt_forwarding"
-  | "security_settings";
+  | "security_settings"
+  | "approve_request";
 
 export type FinanceImportJob = {
   id: string;
@@ -284,6 +291,62 @@ export type NotificationItem = {
   title: string;
   body: string;
   is_read: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentTask = {
+  id: string;
+  user_id: string;
+  task_type: string;
+  status: "queued" | "running" | "completed" | "failed" | "cancelled";
+  reason: string;
+  input_payload: Record<string, unknown>;
+  output_payload: Record<string, unknown>;
+  trace_id: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type ExecutionIntent = {
+  action_type: string;
+  title: string;
+  description: string;
+  provider?: ExecutionProvider;
+  payload: Record<string, unknown>;
+};
+
+export type FinanceApprovalRequest = {
+  id: string;
+  user_id: string;
+  action_type: string;
+  risk_class: "low" | "medium" | "high";
+  status: "pending" | "approved" | "rejected" | "expired";
+  title: string;
+  description: string;
+  request_payload: Record<string, unknown>;
+  execution_intent: ExecutionIntent | Record<string, unknown>;
+  expires_at: string | null;
+  decided_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
+export type FinanceExecutionReceipt = {
+  id: string;
+  user_id: string;
+  approval_request_id: string | null;
+  action_type: string;
+  status: "approved_pending" | "completed" | "failed" | "cancelled";
+  title: string;
+  description: string;
+  provider: ExecutionProvider;
+  dispatch_status: ExecutionDispatchStatus;
+  receipt_payload: Record<string, unknown>;
+  reconciliation_payload: Record<string, unknown>;
+  executed_at: string;
+  dispatched_at: string | null;
+  reconciled_at: string | null;
   created_at: string;
   updated_at: string;
 };

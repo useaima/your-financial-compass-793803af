@@ -22,15 +22,23 @@ import {
   deleteFinancialEntry,
   deleteGoal,
   deleteSubscription,
+  approveRequest as approveWorkspaceRequest,
+  dispatchApprovedRequest as dispatchWorkspaceApprovedRequest,
   getReceiptForwardingAddress as getWorkspaceReceiptForwardingAddress,
   importCsvTransactions as importWorkspaceCsvTransactions,
   markNotificationRead as markWorkspaceNotificationRead,
+  proposeBillAction as proposeWorkspaceBillAction,
+  proposeSubscriptionAction as proposeWorkspaceSubscriptionAction,
+  reconcileExecutionResult as reconcileWorkspaceExecutionResult,
+  rejectRequest as rejectWorkspaceRequest,
   requestSensitiveActionCode as requestWorkspaceSensitiveActionCode,
   reviewDraftTransaction as reviewWorkspaceDraftTransaction,
+  runAgentPlanner as runWorkspaceAgentPlanner,
   saveBudgetLimit,
   saveFinancialEntry,
   saveGoal,
   saveSubscription,
+  updateAgentMode as updateWorkspaceAgentMode,
   updateProfile as updateWorkspaceProfile,
   verifySensitiveActionCode as verifyWorkspaceSensitiveActionCode,
 } from "@/lib/workspaceData";
@@ -368,6 +376,8 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       completeOnboarding: async (payload) =>
         runMutation(() => completeOnboarding(payload, { legacyPublicUserId })),
       updateProfile: async (payload) => runMutation(() => updateWorkspaceProfile(payload)),
+      updateAgentMode: async (input) => runMutation(() => updateWorkspaceAgentMode(input)),
+      runAgentPlanner: async () => runMutation(() => runWorkspaceAgentPlanner()),
       saveGoal: async (goal) => runMutation(() => saveGoal(goal)),
       deleteGoal: async (goalId) => runMutation(() => deleteGoal(goalId)),
       saveBudgetLimit: async (limit) => runMutation(() => saveBudgetLimit(limit)),
@@ -389,6 +399,18 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
         verifyWorkspaceSensitiveActionCode(input),
       getReceiptForwardingAddress: async (securityVerificationId) =>
         getWorkspaceReceiptForwardingAddress(securityVerificationId),
+      proposeSubscriptionAction: async (input) =>
+        runMutation(() => proposeWorkspaceSubscriptionAction(input)),
+      proposeBillAction: async (input) =>
+        runMutation(() => proposeWorkspaceBillAction(input)),
+      approveRequest: async (input) =>
+        runMutation(() => approveWorkspaceRequest(input)),
+      rejectRequest: async (input) =>
+        runMutation(() => rejectWorkspaceRequest(input)),
+      dispatchApprovedRequest: async (approvalRequestId) =>
+        runMutation(() => dispatchWorkspaceApprovedRequest(approvalRequestId)),
+      reconcileExecutionResult: async (input) =>
+        runMutation(() => reconcileWorkspaceExecutionResult(input)),
       reviewDraftTransaction: async (input) =>
         runMutation(() => reviewWorkspaceDraftTransaction(input)),
       markNotificationRead: async (notificationId) =>

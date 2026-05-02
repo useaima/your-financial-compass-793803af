@@ -3,6 +3,7 @@ import { hasSupabaseConfig, SUPABASE_SETUP_MESSAGE } from "@/integrations/supaba
 import { EMPTY_DASHBOARD_SUMMARY } from "@/lib/finance";
 import type {
   AffordabilityResult,
+  AgentMode,
   BootstrapData,
   BudgetLimit,
   DraftTransaction,
@@ -48,6 +49,9 @@ function createEmptyBootstrap(userId = "", email: string | null = null): Bootstr
     import_jobs: [],
     draft_transactions: [],
     notifications: [],
+    agent_tasks: [],
+    approval_requests: [],
+    action_history: [],
     empty_flags: {
       has_spending_history: false,
       has_goals: false,
@@ -94,6 +98,22 @@ export async function completeOnboarding(
 
 export async function updateProfile(payload: Partial<UserProfile>) {
   return invokeWorkspace<BootstrapData>("update_profile", { profile: payload });
+}
+
+export async function updateAgentMode(input: {
+  agentMode: AgentMode;
+  autopilotHighRiskEnabled?: boolean;
+}) {
+  return invokeWorkspace<BootstrapData>("update_agent_mode", {
+    agent_settings: {
+      agent_mode: input.agentMode,
+      autopilot_high_risk_enabled: input.autopilotHighRiskEnabled ?? false,
+    },
+  });
+}
+
+export async function runAgentPlanner() {
+  return invokeWorkspace<BootstrapData>("run_agent_planner");
 }
 
 export async function saveGoal(goal: Partial<UserGoal>) {
@@ -191,5 +211,77 @@ export async function verifySensitiveActionCode(input: {
 export async function getReceiptForwardingAddress(securityVerificationId: string) {
   return invokeWorkspace<ReceiptForwardingDetails>("get_receipt_forwarding_address", {
     security_verification_id: securityVerificationId,
+  });
+}
+
+export async function proposeSubscriptionAction(input: {
+  subscriptionId: string;
+  proposalAction: "cancel" | "review";
+  reason?: string | null;
+}) {
+  return invokeWorkspace<BootstrapData>("propose_subscription_action", {
+    proposal: {
+      subscription_id: input.subscriptionId,
+      proposal_action: input.proposalAction,
+      reason: input.reason ?? null,
+    },
+  });
+}
+
+export async function proposeBillAction(input: {
+  merchant: string;
+  amount?: number;
+  dueDate?: string | null;
+  note?: string | null;
+  proposalAction: "bill_reminder" | "merchant_follow_up";
+}) {
+  return invokeWorkspace<BootstrapData>("propose_bill_action", {
+    proposal: {
+      merchant: input.merchant,
+      amount: input.amount ?? 0,
+      due_date: input.dueDate ?? null,
+      note: input.note ?? null,
+      proposal_action: input.proposalAction,
+    },
+  });
+}
+
+export async function approveRequest(input: {
+  approvalRequestId: string;
+  securityVerificationId: string;
+}) {
+  return invokeWorkspace<BootstrapData>("approve_request", {
+    approval_request_id: input.approvalRequestId,
+    security_verification_id: input.securityVerificationId,
+  });
+}
+
+export async function rejectRequest(input: {
+  approvalRequestId: string;
+  reason?: string | null;
+}) {
+  return invokeWorkspace<BootstrapData>("reject_request", {
+    approval_request_id: input.approvalRequestId,
+    reason: input.reason ?? null,
+  });
+}
+
+export async function dispatchApprovedRequest(approvalRequestId: string) {
+  return invokeWorkspace<BootstrapData>("dispatch_approved_request", {
+    approval_request_id: approvalRequestId,
+  });
+}
+
+export async function reconcileExecutionResult(input: {
+  executionReceiptId: string;
+  outcome: "completed" | "failed" | "cancelled";
+  note?: string | null;
+}) {
+  return invokeWorkspace<BootstrapData>("reconcile_execution_result", {
+    reconciliation: {
+      execution_receipt_id: input.executionReceiptId,
+      outcome: input.outcome,
+      note: input.note ?? null,
+    },
   });
 }

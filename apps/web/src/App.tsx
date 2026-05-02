@@ -11,7 +11,6 @@ import AppErrorDialog from "@/components/AppErrorDialog";
 import BrandLockup from "@/components/BrandLockup";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
-import PwaRuntime from "@/components/PwaRuntime";
 import { AppPreferencesProvider } from "@/context/AppPreferencesContext";
 import { PublicUserProvider, usePublicUser } from "@/context/PublicUserContext";
 import { useAppPreferences } from "@/context/app-preferences-context";
@@ -19,14 +18,47 @@ import { SUPPORT_BASE_URL } from "@/lib/supportLinks";
 import Landing from "@/pages/Landing";
 
 const pageLoaders = import.meta.glob<{ default: React.ComponentType<any> }>(
-  "./pages/{Auth,Budget,Chat,Dashboard,FinancialStatement,Goals,Insights,Install,News,NotFound,Onboarding,Privacy,Settings,SpendingHistory,StockPicks,Subscriptions,Terms,Transactions}.tsx",
+  "./pages/{ActionHistory,ApprovalInbox,Auth,Budget,Chat,Dashboard,FinancialStatement,Goals,Insights,News,NotFound,Onboarding,Privacy,Settings,SpendingHistory,StockPicks,Subscriptions,Terms,Transactions}.tsx",
 );
 
+function isChunkLoadError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error ?? "");
+  return (
+    /Failed to fetch dynamically imported module/i.test(message) ||
+    /Importing a module script failed/i.test(message) ||
+    /Loading chunk/i.test(message) ||
+    /dynamically imported module/i.test(message)
+  );
+}
+
+async function recoverFromStaleChunk() {
+  if (typeof window === "undefined") return;
+
+  const storageKey = "eva-stale-chunk-recovery";
+  const lastRecovery = Number(window.sessionStorage.getItem(storageKey) ?? 0);
+  if (Date.now() - lastRecovery < 30_000) return;
+
+  window.sessionStorage.setItem(storageKey, String(Date.now()));
+
+  window.location.reload();
+}
+
 function lazyPage(path: keyof typeof pageLoaders) {
-  return lazy(pageLoaders[path]);
+  return lazy(async () => {
+    try {
+      return await pageLoaders[path]();
+    } catch (error) {
+      if (isChunkLoadError(error)) {
+        void recoverFromStaleChunk();
+      }
+      throw error;
+    }
+  });
 }
 
 const Dashboard = lazyPage("./pages/Dashboard.tsx");
+const ApprovalInbox = lazyPage("./pages/ApprovalInbox.tsx");
+const ActionHistory = lazyPage("./pages/ActionHistory.tsx");
 const Chat = lazyPage("./pages/Chat.tsx");
 const Transactions = lazyPage("./pages/Transactions.tsx");
 const Goals = lazyPage("./pages/Goals.tsx");
@@ -39,7 +71,6 @@ const Subscriptions = lazyPage("./pages/Subscriptions.tsx");
 const Terms = lazyPage("./pages/Terms.tsx");
 const Privacy = lazyPage("./pages/Privacy.tsx");
 const NotFound = lazyPage("./pages/NotFound.tsx");
-const Install = lazyPage("./pages/Install.tsx");
 const Budget = lazyPage("./pages/Budget.tsx");
 const SpendingHistory = lazyPage("./pages/SpendingHistory.tsx");
 const Onboarding = lazyPage("./pages/Onboarding.tsx");
@@ -294,7 +325,6 @@ const App = () => (
             <AppErrorDialog />
             <BrowserRouter>
               <PublicUserProvider>
-                <PwaRuntime />
                 <Routes>
                   <Route path="/" element={<Landing />} />
                   <Route path="/auth" element={<AuthPage />} />
@@ -302,6 +332,8 @@ const App = () => (
                   <Route path="/privacy" element={<RouteSuspense><Privacy /></RouteSuspense>} />
                   <Route path="/onboarding" element={<OnboardingPage />} />
                   <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+                  <Route path="/approvals" element={<ProtectedPage><ApprovalInbox /></ProtectedPage>} />
+                  <Route path="/action-history" element={<ProtectedPage><ActionHistory /></ProtectedPage>} />
                   <Route path="/chat" element={<ProtectedPage><Chat /></ProtectedPage>} />
                   <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
                   <Route path="/goals" element={<ProtectedPage><Goals /></ProtectedPage>} />
@@ -315,7 +347,6 @@ const App = () => (
                   <Route path="/feedback" element={<Navigate to="/settings?section=feedback" replace />} />
                   <Route path="/budget" element={<ProtectedPage><Budget /></ProtectedPage>} />
                   <Route path="/spending-history" element={<ProtectedPage><SpendingHistory /></ProtectedPage>} />
-                  <Route path="/install" element={<RouteSuspense><Install /></RouteSuspense>} />
                   <Route path="*" element={<RouteSuspense><NotFound /></RouteSuspense>} />
                 </Routes>
               </PublicUserProvider>

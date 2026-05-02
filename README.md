@@ -54,6 +54,12 @@ Create a `.env` file in `apps/web/` with the following variables:
 *   `VITE_SUPABASE_PUBLISHABLE_KEY`
 *   `VITE_SUPABASE_URL`
 
+Supabase Edge Function secrets for the Phase E/G launch slice:
+*   `UTG_API_BASE_URL=https://utg.useaima.com`
+*   `UTG_API_KEY`
+*   `EVA_AGENT_AUTOPILOT_ENABLED=true`
+*   `EVA_UTG_DISPATCH_ENABLED=true`
+
 ## 📱 Local Development (Mobile App)
 
 The mobile app is built with Flutter.

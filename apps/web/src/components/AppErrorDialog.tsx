@@ -49,9 +49,39 @@ export default function AppErrorDialog() {
       setDialog(customEvent.detail);
     };
 
+    const isStaleChunkError = (value: unknown) => {
+      const message = value instanceof Error ? value.message : String(value ?? "");
+      return (
+        /Failed to fetch dynamically imported module/i.test(message) ||
+        /Importing a module script failed/i.test(message) ||
+        /Loading chunk/i.test(message) ||
+        /dynamically imported module/i.test(message)
+      );
+    };
+
+    const openStaleChunkDialog = () => {
+      setDialog({
+        kind: "network",
+        title: "eva needs a quick refresh",
+        description:
+          "Your browser is holding an older app file while eva has a newer dashboard bundle. Refresh once and eva will clear the stale cache automatically.",
+      });
+    };
+
     const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      if (isStaleChunkError(event.reason)) {
+        openStaleChunkDialog();
+        return;
+      }
+
       if (isNetworkError(event.reason)) {
         openNetworkErrorDialog();
+      }
+    };
+
+    const handleRuntimeError = (event: ErrorEvent) => {
+      if (isStaleChunkError(event.error ?? event.message)) {
+        openStaleChunkDialog();
       }
     };
 
@@ -63,12 +93,14 @@ export default function AppErrorDialog() {
     window.addEventListener("online", handleOnline);
     window.addEventListener(APP_ERROR_DIALOG_EVENT, handleDialogEvent as EventListener);
     window.addEventListener("unhandledrejection", handleUnhandledRejection);
+    window.addEventListener("error", handleRuntimeError);
 
     return () => {
       window.removeEventListener("offline", handleOffline);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener(APP_ERROR_DIALOG_EVENT, handleDialogEvent as EventListener);
       window.removeEventListener("unhandledrejection", handleUnhandledRejection);
+      window.removeEventListener("error", handleRuntimeError);
     };
   }, []);
 

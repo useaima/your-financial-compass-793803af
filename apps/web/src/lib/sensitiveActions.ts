@@ -37,6 +37,13 @@ export const SENSITIVE_ACTIONS: Record<SensitiveActionId, SensitiveActionMeta> =
     helpHref: SUPPORT_LINKS.securityVerification,
     confirmLabel: "Verify and continue",
   },
+  approve_request: {
+    title: "Verify by email before approving this action",
+    description:
+      "Approving a proposed subscription or bill action creates a real execution record in EVA. We send a short email code first so only you can approve it.",
+    helpHref: SUPPORT_LINKS.securityVerification,
+    confirmLabel: "Verify and approve",
+  },
 };
 
 export type { SensitiveActionId };

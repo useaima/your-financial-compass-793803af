@@ -46,7 +46,7 @@ export default function AgentInsights() {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3" role="region" aria-label="eva next actions">
       <div className="mb-2 flex items-center justify-between">
         <h2 className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
           <Sparkles className="h-3 w-3 text-primary" />

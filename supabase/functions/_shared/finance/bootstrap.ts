@@ -15,6 +15,10 @@ import type {
 } from "./types.ts";
 import { parseBoolean, parseNumber } from "./utils.ts";
 
+function normalizeAgentMode(value: unknown): FinanceProfile["agent_mode"] {
+  return value === "assisted" || value === "autopilot" ? value : "manual";
+}
+
 export function mapLegacyProfileToFinanceProfile(
   userId: string,
   profile: Partial<LegacyPublicProfile> | Record<string, unknown>,
@@ -38,6 +42,10 @@ export function mapLegacyProfileToFinanceProfile(
     ),
     model_training_opt_in: parseBoolean(
       profile.model_training_opt_in ?? existingProfile?.model_training_opt_in ?? false,
+    ),
+    agent_mode: normalizeAgentMode(profile.agent_mode ?? existingProfile?.agent_mode),
+    autopilot_high_risk_enabled: parseBoolean(
+      profile.autopilot_high_risk_enabled ?? existingProfile?.autopilot_high_risk_enabled ?? false,
     ),
     password_setup_completed: parseBoolean(
       profile.password_setup_completed ?? existingProfile?.password_setup_completed ?? false,
@@ -83,6 +91,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
     importJobsResult,
     draftTransactionsResult,
     notificationsResult,
+    agentTasksResult,
+    approvalRequestsResult,
+    actionHistoryResult,
   ] = await Promise.all([
     admin.from("finance_profiles").select("*").eq("user_id", userId).maybeSingle(),
     admin.from("finance_goals").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
@@ -93,6 +104,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
     admin.from("finance_import_jobs").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
     admin.from("finance_draft_transactions").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(80),
     admin.from("notifications").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(12),
+    admin.from("agent_tasks").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
+    admin.from("approval_requests").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(30),
+    admin.from("finance_execution_receipts").select("*").eq("user_id", userId).order("executed_at", { ascending: false }).limit(40),
   ]);
 
   if (profileResult.error) throw profileResult.error;
@@ -104,6 +118,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
   if (importJobsResult.error) throw importJobsResult.error;
   if (draftTransactionsResult.error) throw draftTransactionsResult.error;
   if (notificationsResult.error) throw notificationsResult.error;
+  if (agentTasksResult.error) throw agentTasksResult.error;
+  if (approvalRequestsResult.error) throw approvalRequestsResult.error;
+  if (actionHistoryResult.error) throw actionHistoryResult.error;
 
   const profile = (profileResult.data as FinanceProfile | null) ?? null;
   const goals = goalsResult.data ?? [];
@@ -114,6 +131,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
   const importJobs = importJobsResult.data ?? [];
   const draftTransactions = draftTransactionsResult.data ?? [];
   const notifications = notificationsResult.data ?? [];
+  const agentTasks = agentTasksResult.data ?? [];
+  const approvalRequests = approvalRequestsResult.data ?? [];
+  const actionHistory = actionHistoryResult.data ?? [];
 
   const dashboardSummary = buildDashboardSummary(
     profile,
@@ -161,6 +181,9 @@ export async function buildBootstrap(userId: string, email: string | null = null
     import_jobs: importJobs,
     draft_transactions: draftTransactions,
     notifications,
+    agent_tasks: agentTasks,
+    approval_requests: approvalRequests,
+    action_history: actionHistory,
     empty_flags: {
       has_spending_history: spendingEvents.length > 0,
       has_goals: goals.length > 0,

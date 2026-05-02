@@ -16,7 +16,8 @@ function parseSensitiveActionId(value: unknown): SensitiveActionId {
     value === "generate_statement" ||
     value === "review_draft_transaction" ||
     value === "receipt_forwarding" ||
-    value === "security_settings"
+    value === "security_settings" ||
+    value === "approve_request"
   ) {
     return value;
   }
@@ -28,6 +29,7 @@ function getSensitiveActionTitle(action: SensitiveActionId) {
   if (action === "generate_statement") return "generate your financial statement";
   if (action === "review_draft_transaction") return "approve or edit imported transactions";
   if (action === "receipt_forwarding") return "reveal your receipt-forwarding address";
+  if (action === "approve_request") return "approve an execution request";
   return "change account security settings";
 }
 
@@ -38,6 +40,9 @@ function getSensitiveActionEmailSubject(action: SensitiveActionId) {
   }
   if (action === "receipt_forwarding") {
     return "Your EVA security code for receipt forwarding";
+  }
+  if (action === "approve_request") {
+    return "Your EVA security code for approval requests";
   }
   return "Your EVA security code";
 }

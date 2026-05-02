@@ -2,10 +2,25 @@ import { buildBootstrap, normalizeProfile, replaceOnboardingData } from "./boots
 import { createAdminClient } from "./db.ts";
 import { buildAffordabilityResult } from "./intelligence.ts";
 import {
-  analyzeReceiptImage,
-  buildReceiptForwardingDetails,
-  importCsvTransactions,
-  reviewDraftTransaction,
+  approveRequest,
+  dispatchApprovedRequest,
+  getApprovalRequest,
+  listActionHistory,
+  listApprovalRequests,
+  proposeBillAction,
+  proposeSubscriptionAction,
+  recordExecutionReceipt,
+  reconcileExecutionResult,
+  rejectRequest,
+  runAgentPlanner,
+  syncExecutionReceipt,
+  updateAgentMode,
+} from "./execution.ts";
+import {
+  analyzeReceiptImage as analyzeReceiptImageImport,
+  buildReceiptForwardingDetails as buildReceiptForwardingAddress,
+  importCsvTransactions as importCsvTransactionsImport,
+  reviewDraftTransaction as reviewDraftTransactionImport,
 } from "./imports.ts";
 import { migrateLegacyPublicData } from "./migration.ts";
 import {
@@ -217,6 +232,19 @@ export async function handleFinanceCoreAction(params: {
     return buildBootstrap(user.id, user.email);
   }
 
+  if (action === "update_agent_mode") {
+    await updateAgentMode(
+      user.id,
+      (body.agent_settings as Record<string, unknown>) ?? {},
+    );
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "run_agent_planner") {
+    await runAgentPlanner(user.id);
+    return buildBootstrap(user.id, user.email);
+  }
+
   if (action === "save_goal") {
     await saveGoal(user.id, (body.goal as Record<string, unknown>) ?? {});
     return buildBootstrap(user.id, user.email);
@@ -293,20 +321,20 @@ export async function handleFinanceCoreAction(params: {
       body.security_verification_id,
     );
 
-    return buildReceiptForwardingDetails(user.id);
+    return buildReceiptForwardingAddress(user.id);
   }
 
   if (action === "import_csv_transactions") {
     const csvText = String(body.csv_text ?? "");
     const fileName = typeof body.file_name === "string" ? body.file_name : null;
-    await importCsvTransactions(user.id, csvText, fileName);
+    await importCsvTransactionsImport(user.id, csvText, fileName);
     return buildBootstrap(user.id, user.email);
   }
 
   if (action === "analyze_receipt_image") {
     const imageDataUrl = String(body.image_data_url ?? "");
     const fileName = typeof body.file_name === "string" ? body.file_name : null;
-    await analyzeReceiptImage(user.id, imageDataUrl, fileName);
+    await analyzeReceiptImageImport(user.id, imageDataUrl, fileName);
     return buildBootstrap(user.id, user.email);
   }
 
@@ -314,7 +342,7 @@ export async function handleFinanceCoreAction(params: {
     const draftId = String(body.draft_transaction_id ?? "");
     const decision =
       body.decision === "reject" ? "reject" : body.decision === "edit" ? "edit" : "approve";
-    await reviewDraftTransaction(user.id, {
+    await reviewDraftTransactionImport(user.id, {
       draftId,
       decision,
       securityVerificationId:
@@ -326,6 +354,82 @@ export async function handleFinanceCoreAction(params: {
           ? (body.updates as Record<string, unknown>)
           : undefined,
     });
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "list_approval_requests") {
+    return listApprovalRequests(user.id);
+  }
+
+  if (action === "get_approval_request") {
+    return getApprovalRequest(user.id, String(body.approval_request_id ?? ""));
+  }
+
+  if (action === "list_action_history") {
+    return listActionHistory(user.id);
+  }
+
+  if (action === "propose_subscription_action") {
+    await proposeSubscriptionAction(
+      user.id,
+      (body.proposal as Record<string, unknown>) ?? {},
+    );
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "propose_bill_action") {
+    await proposeBillAction(
+      user.id,
+      (body.proposal as Record<string, unknown>) ?? {},
+    );
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "approve_request") {
+    await approveRequest(
+      user.id,
+      String(body.approval_request_id ?? ""),
+      typeof body.security_verification_id === "string"
+        ? body.security_verification_id
+        : null,
+    );
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "reject_request") {
+    await rejectRequest(
+      user.id,
+      String(body.approval_request_id ?? ""),
+      typeof body.reason === "string" ? body.reason : null,
+    );
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "record_execution_receipt") {
+    return recordExecutionReceipt(
+      user.id,
+      (body.receipt as Record<string, unknown>) ?? {},
+    );
+  }
+
+  if (action === "dispatch_approved_request") {
+    await dispatchApprovedRequest(user.id, String(body.approval_request_id ?? ""));
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "sync_execution_receipt") {
+    await syncExecutionReceipt(
+      user.id,
+      (body.receipt as Record<string, unknown>) ?? {},
+    );
+    return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "reconcile_execution_result") {
+    await reconcileExecutionResult(
+      user.id,
+      (body.reconciliation as Record<string, unknown>) ?? {},
+    );
     return buildBootstrap(user.id, user.email);
   }
 

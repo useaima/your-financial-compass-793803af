@@ -32,7 +32,14 @@ export default function HealthScoreGauge({ score }: Props) {
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="relative w-[140px] h-[140px]">
+      <div
+        className="relative w-[140px] h-[140px]"
+        role="meter"
+        aria-valuenow={score}
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-label="Financial health score"
+      >
         <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
           <circle
             cx="60" cy="60" r={radius}

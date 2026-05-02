@@ -1,5 +1,8 @@
 export type UserType = "personal" | "business";
 export type FinancialEntryType = "asset" | "liability";
+export type AgentMode = "manual" | "assisted" | "autopilot";
+export type ExecutionProvider = "manual_external_account" | "utg";
+export type ExecutionDispatchStatus = "not_dispatched" | "dispatch_pending" | "dispatched" | "dispatch_failed";
 
 export interface AuthUser {
   id: string;
@@ -16,6 +19,8 @@ export interface UserProfile {
   user_type: UserType;
   updates_opt_in: boolean;
   model_training_opt_in: boolean;
+  agent_mode: AgentMode;
+  autopilot_high_risk_enabled: boolean;
   password_setup_completed: boolean;
   cash_balance: number;
   monthly_income: number;
@@ -224,7 +229,8 @@ export type SensitiveActionId =
   | "generate_statement"
   | "review_draft_transaction"
   | "receipt_forwarding"
-  | "security_settings";
+  | "security_settings"
+  | "approve_request";
 
 export interface ImportJob {
   id: string;
@@ -326,6 +332,9 @@ export interface BootstrapData {
   import_jobs: ImportJob[];
   draft_transactions: DraftTransaction[];
   notifications: NotificationItem[];
+  agent_tasks: AgentTask[];
+  approval_requests: ApprovalRequest[];
+  action_history: ExecutionReceipt[];
   empty_flags: EmptyFlags;
 }
 
@@ -398,6 +407,7 @@ export interface ExecutionIntent {
   action_type: string;
   title: string;
   description: string;
+  provider?: ExecutionProvider;
   payload: Record<string, unknown>;
 }
 
@@ -413,6 +423,25 @@ export interface ApprovalRequest {
   execution_intent: ExecutionIntent | Record<string, unknown>;
   expires_at: string | null;
   decided_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ExecutionReceipt {
+  id: string;
+  user_id: string;
+  approval_request_id: string | null;
+  action_type: string;
+  status: "approved_pending" | "completed" | "failed" | "cancelled";
+  title: string;
+  description: string;
+  provider: ExecutionProvider;
+  dispatch_status: ExecutionDispatchStatus;
+  receipt_payload: Record<string, unknown>;
+  reconciliation_payload: Record<string, unknown>;
+  executed_at: string;
+  dispatched_at: string | null;
+  reconciled_at: string | null;
   created_at: string;
   updated_at: string;
 }

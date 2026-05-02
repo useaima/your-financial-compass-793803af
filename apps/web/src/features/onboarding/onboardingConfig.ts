@@ -142,7 +142,7 @@ export const guidanceOptions: Array<{
   {
     value: "strict",
     title: "Strict",
-    description: "Push me when I need to improve.",
+    description: "Show me helpful nudges when I need to improve.",
   },
   {
     value: "balanced",

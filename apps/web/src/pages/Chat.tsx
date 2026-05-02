@@ -4,7 +4,7 @@ import { Send, Sparkles, User, Loader2, TrendingUp, Wallet, BarChart3, Calendar 
 import ReactMarkdown from "react-markdown";
 import { useLocation } from "react-router-dom";
 import { streamChat, type Msg, type ParsedSpending } from "@/lib/streamChat";
-import { clearChatStarter, getShareOrProtocolStarter, readChatStarter } from "@/lib/pwa";
+import { clearChatStarter, readChatStarter } from "@/lib/chatStarter";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -181,14 +181,6 @@ export default function Chat() {
     let autoStart = routeState?.autoStart;
 
     if (!starterPrompt || autoStart === undefined) {
-      const launchStarter = getShareOrProtocolStarter(location.search);
-      if (launchStarter) {
-        starterPrompt = launchStarter.starterPrompt;
-        autoStart = launchStarter.autoStart ?? autoStart;
-      }
-    }
-
-    if (!starterPrompt || autoStart === undefined) {
       const storedStarter = readChatStarter();
       if (storedStarter) {
         starterPrompt = storedStarter.starterPrompt ?? starterPrompt;
@@ -220,7 +212,7 @@ export default function Chat() {
         window.location.href,
       );
     }
-  }, [location.search, location.state, send]);
+  }, [location.state, send]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {

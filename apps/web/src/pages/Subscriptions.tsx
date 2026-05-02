@@ -56,7 +56,12 @@ const fadeUp = {
 
 export default function Subscriptions() {
   const { toast } = useToast();
-  const { bootstrap, saveSubscription, deleteSubscription } = usePublicUser();
+  const {
+    bootstrap,
+    saveSubscription,
+    deleteSubscription,
+    proposeSubscriptionAction,
+  } = usePublicUser();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [formData, setFormData] = useState<SubscriptionInput>({
@@ -125,6 +130,32 @@ export default function Subscriptions() {
       category: subscription.category,
     });
     setShowForm(true);
+  };
+
+  const handleProposeAction = async (
+    subscription: (typeof subscriptions)[number],
+    proposalAction: "cancel" | "review",
+  ) => {
+    try {
+      const recommendation = subscriptionReview?.recommendations.find(
+        (item) => item.id === subscription.id,
+      );
+      await proposeSubscriptionAction({
+        subscriptionId: subscription.id,
+        proposalAction,
+        reason: recommendation?.reason ?? null,
+      });
+      toast({
+        title: proposalAction === "cancel" ? "Cancellation proposal created" : "Review proposal created",
+        description: `${subscription.name} is now waiting in your approval inbox.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Unable to create proposal",
+        description: error instanceof Error ? error.message : "Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const runAnalysis = async () => {
@@ -288,6 +319,22 @@ export default function Subscriptions() {
                 <p className="mt-2 text-xs text-muted-foreground">
                   Monthly impact {formatCurrency(recommendation.monthly_impact)}
                 </p>
+                {recommendation.action !== "keep" && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant={recommendation.action === "cancel" ? "destructive" : "default"}
+                      onClick={() =>
+                        handleProposeAction(
+                          subscriptions.find((item) => item.id === recommendation.id)!,
+                          recommendation.action === "cancel" ? "cancel" : "review",
+                        )
+                      }
+                    >
+                      Send to approval inbox
+                    </Button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -388,16 +435,17 @@ export default function Subscriptions() {
               initial="hidden"
               animate="visible"
               variants={fadeUp}
-              className="flex items-center justify-between rounded-xl border border-border bg-card px-4 py-3"
+              className="rounded-xl border border-border bg-card px-4 py-3"
             >
-              <div>
-                <p className="text-sm font-medium text-foreground">{subscription.name}</p>
-                <p className="text-xs text-muted-foreground">
-                  {subscription.category} • {formatCurrency(Number(subscription.price))} /{" "}
-                  {subscription.billing_cycle}
-                </p>
-              </div>
-              <div className="flex items-center gap-1">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-sm font-medium text-foreground">{subscription.name}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {subscription.category} • {formatCurrency(Number(subscription.price))} /{" "}
+                    {subscription.billing_cycle}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1">
                 <button
                   type="button"
                   onClick={() => handleEdit(subscription)}
@@ -414,6 +462,11 @@ export default function Subscriptions() {
                 >
                   <Trash2 className="h-3.5 w-3.5" />
                 </button>
+              </div>
+              </div>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button size="sm" variant="outline" onClick={() => handleProposeAction(subscription, "review")}>Propose review</Button>
+                <Button size="sm" variant="destructive" onClick={() => handleProposeAction(subscription, "cancel")}>Propose cancellation</Button>
               </div>
             </motion.div>
           ))}
