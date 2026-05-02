@@ -77,12 +77,44 @@ function formatPlaceSearch(result: PlaceSearchResult) {
   return `**Beta Google Maps lookup**\n\n${result.finance_aware_summary}\n\n_Confidence: ${result.confidence}. Fresh as of ${new Date(result.freshness_timestamp).toLocaleString()}._${places}`;
 }
 
-function shouldUsePlaceSearch(text: string) {
-  return /\b(near me|nearby|map|maps|where can i buy|restaurant|store|shop|merchant|supermarket|location|places?)\b/i.test(text);
+const GROUNDING_COOLDOWN_MS = 30_000;
+const GROUNDING_DAILY_LIMIT = 5;
+
+function isExplicitPlaceSearch(text: string) {
+  return /^(find places on google maps for:|use google maps for:|maps:)/i.test(text.trim());
 }
 
-function shouldUseGroundedSearch(text: string) {
-  return /\b(latest|real[- ]?time|today|current|search|google|compare|news|price of|which is better)\b/i.test(text);
+function isExplicitGroundedSearch(text: string) {
+  const trimmed = text.trim();
+  return /^(search google for:|google search:|search:)/i.test(trimmed) || /\b(real[- ]?time|breaking|live price|current price|latest (news|price|prices|rate|rates|facts|data))\b/i.test(trimmed);
+}
+
+function cleanGroundingPrompt(text: string) {
+  return text
+    .replace(/^(search google for:|google search:|search:|find places on google maps for:|use google maps for:|maps:)\s*/i, "")
+    .trim();
+}
+
+function checkGroundingBudget(kind: "search" | "maps") {
+  if (typeof window === "undefined") return null;
+
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const storageKey = `eva:${kind}:grounding:${todayKey}`;
+  const lastKey = `eva:${kind}:grounding:last`;
+  const lastRun = Number(window.localStorage.getItem(lastKey) ?? 0);
+
+  if (Date.now() - lastRun < GROUNDING_COOLDOWN_MS) {
+    return `To protect your free-tier quota, wait a few seconds before using Beta ${kind === "maps" ? "Maps" : "Search"} grounding again.`;
+  }
+
+  const count = Number(window.localStorage.getItem(storageKey) ?? 0);
+  if (count >= GROUNDING_DAILY_LIMIT) {
+    return `Beta ${kind === "maps" ? "Maps" : "Search"} grounding is limited to ${GROUNDING_DAILY_LIMIT} uses per day for launch. Normal EVA chat still works through Vercel AI Gateway.`;
+  }
+
+  window.localStorage.setItem(lastKey, String(Date.now()));
+  window.localStorage.setItem(storageKey, String(count + 1));
+  return null;
 }
 
 function formatMediaInsight(result: Awaited<ReturnType<ReturnType<typeof usePublicUser>["analyzeMedia"]>>) {
@@ -253,10 +285,19 @@ export default function Chat() {
       return;
     }
 
-    if (shouldUsePlaceSearch(trimmed)) {
+    if (isExplicitPlaceSearch(trimmed)) {
+      const budgetMessage = checkGroundingBudget("maps");
+      if (budgetMessage) {
+        const assistantMsg: Msg = { role: "assistant", content: budgetMessage };
+        setMessages((prev) => [...prev, assistantMsg]);
+        addEntry({ type: "msg", msg: assistantMsg });
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const result = await groundedPlaceSearch({
-          query: trimmed,
+          query: cleanGroundingPrompt(trimmed),
           requested_purpose: "merchant/place lookup for finance-aware decision",
           max_results: 5,
         });
@@ -278,11 +319,20 @@ export default function Chat() {
       return;
     }
 
-    if (shouldUseGroundedSearch(trimmed)) {
+    if (isExplicitGroundedSearch(trimmed)) {
+      const budgetMessage = checkGroundingBudget("search");
+      if (budgetMessage) {
+        const assistantMsg: Msg = { role: "assistant", content: budgetMessage };
+        setMessages((prev) => [...prev, assistantMsg]);
+        addEntry({ type: "msg", msg: assistantMsg });
+        setIsLoading(false);
+        return;
+      }
+
       try {
         const result = await groundedGoogleSearch({
-          query: trimmed,
-          user_intent: "real-time finance-aware chat answer",
+          query: cleanGroundingPrompt(trimmed),
+          user_intent: "explicit_beta_search",
           finance_context_mode: "summary",
           require_citations: true,
         });
@@ -694,10 +744,10 @@ export default function Chat() {
               {isListening ? <MicOff className="h-4 w-4" aria-hidden="true" /> : <Mic className="h-4 w-4" aria-hidden="true" />}
               Voice <BetaBadge />
             </button>
-            <button type="button" onClick={() => void send(`Search Google for: ${input || "current prices and finance-safe options"}`)} disabled={isLoading} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium transition hover:bg-secondary disabled:opacity-50" aria-label="Use beta Google Search grounding">
+            <button type="button" onClick={() => void send(`Search Google for: ${input || "current prices and finance-safe options"}`)} disabled={isLoading} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium transition hover:bg-secondary disabled:opacity-50" aria-label="Use beta Google Search grounding, limited to explicit current web questions">
               <Search className="h-4 w-4" aria-hidden="true" /> Search <BetaBadge />
             </button>
-            <button type="button" onClick={() => void send(`Find places on Google Maps for: ${input || "nearby merchants"}`)} disabled={isLoading} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium transition hover:bg-secondary disabled:opacity-50" aria-label="Use beta Google Maps grounding">
+            <button type="button" onClick={() => void send(`Find places on Google Maps for: ${input || "nearby merchants"}`)} disabled={isLoading} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium transition hover:bg-secondary disabled:opacity-50" aria-label="Use beta Google Maps grounding, disabled by default for launch">
               <MapPin className="h-4 w-4" aria-hidden="true" /> Maps <BetaBadge />
             </button>
             <button type="button" onClick={() => imageInputRef.current?.click()} className="inline-flex items-center gap-2 rounded-xl border border-border bg-background px-3 py-2 text-xs font-medium transition hover:bg-secondary" aria-label="Upload photo for beta analysis">

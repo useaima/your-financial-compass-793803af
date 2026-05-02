@@ -40,6 +40,7 @@ jobs:
           SUPABASE_PROJECT_ID: ${{ secrets.SUPABASE_PROJECT_ID }}
         run: |
           supabase functions deploy finance-core --project-ref "$SUPABASE_PROJECT_ID"
+          supabase functions deploy chat --project-ref "$SUPABASE_PROJECT_ID"
           supabase functions deploy agent-cycle --project-ref "$SUPABASE_PROJECT_ID"
       - name: Skip deploy without secrets
         if: steps.secrets.outputs.available != 'true'

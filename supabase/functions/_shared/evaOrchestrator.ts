@@ -1,4 +1,5 @@
 import { EVA_MODELS, requestGatewayCompletion, readGatewayToolArguments } from "./evaGateway.ts";
+import type { DashboardSummary } from "./finance/types.ts";
 
 const SPENDING_PARSE_TOOLS = [
   {
@@ -269,6 +270,9 @@ ${budgetSection}
   - **Document Vault**: Users can securely store financial documents. Mention this for receipts or statements.
 - If there is not enough real data to answer confidently, say that plainly and tell the user the next best finance action.
 - Do not invent transactions, balances, categories, or financial facts outside the stored data.
+- Normal chat runs through Vercel AI Gateway. You do not have live Google Search or Maps access in this prompt unless the backend has explicitly provided grounded results with citations or place data.
+- Never claim that you searched Google, checked Maps, saw live prices, verified business hours, or used location data unless that grounded tool output is present in the conversation.
+- For current prices, live facts, or place/location questions without grounded tool output, say you can help from the user's EVA data and ask them to use the Beta Search/Maps control or provide the missing facts manually.
 - If the request is outside personal finance, gently steer back to the user's financial picture.`;
 }
 

@@ -130,7 +130,6 @@ serve(async (req) => {
       weekTotal,
       budgetLimits,
       budgetSpending,
-      bootstrap.isAdmin,
     );
 
     const enhancedMessages = [...messages];

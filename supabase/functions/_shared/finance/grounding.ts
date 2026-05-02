@@ -1,5 +1,5 @@
 import { buildBootstrap } from "./bootstrap.ts";
-import { parseNumber, parseString } from "./utils.ts";
+import { parseString } from "./utils.ts";
 
 export type GroundedSearchRequest = {
   query: string;
@@ -89,7 +89,7 @@ export async function groundedGoogleSearch(userId: string, request: GroundedSear
   const includeFinance = request.finance_context_mode !== "none";
   const context = includeFinance ? `\nUser finance snapshot: ${financeSummary(bootstrap)}` : "";
   const intent = parseString(request.user_intent, "finance guidance");
-  const prompt = `You are EVA, a warm personal finance assistant. Answer concisely with current, cited facts from Google Search. Do not mutate user data. If the user asks for a purchase decision, combine the web facts with the finance snapshot and clearly say if more price information is needed.\nIntent: ${intent}\nQuestion: ${query}${context}`;
+  const prompt = `You are EVA, a warm personal finance assistant. The user explicitly requested Beta Google Search grounding. Answer concisely with current, cited facts from Google Search. Do not mutate user data. Do not claim access to Maps or Search unless grounding metadata or citations are returned. If the user asks for a purchase decision, combine the web facts with the finance snapshot and clearly say if more price information is needed.\nIntent: ${intent}\nQuestion: ${query}${context}`;
 
   const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
     method: "POST",
@@ -136,10 +136,6 @@ export async function groundedGoogleSearch(userId: string, request: GroundedSear
   };
 }
 
-function priceLevelToText(value: unknown) {
-  const parsed = parseString(value);
-  return parsed ? parsed.replace(/^PRICE_LEVEL_/, "").toLowerCase().replace(/_/g, " ") : null;
-}
 
 export async function groundedPlaceSearch(userId: string, request: PlaceSearchRequest): Promise<PlaceSearchResult> {
   const query = parseString(request.query).trim();
@@ -147,37 +143,31 @@ export async function groundedPlaceSearch(userId: string, request: PlaceSearchRe
     throw new Error("Tell EVA what place or merchant to look up first.");
   }
 
-  const apiKey = Deno.env.get("GOOGLE_MAPS_API_KEY");
+  const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!mapsEnabled() || !apiKey) {
     return {
       beta: true,
       places: [],
-      finance_aware_summary: "Google Maps lookup is not configured yet. I can still compare prices or affordability if you give me the item and price.",
+      finance_aware_summary:
+        "Google Maps grounding is off for launch to protect your free-tier quota. Tell me the place, item, and price, and I will still give you a finance-safe affordability answer from your EVA data.",
       freshness_timestamp: new Date().toISOString(),
       confidence: "low",
     };
   }
 
-  const maxResults = Math.min(Math.max(Math.trunc(parseNumber(request.max_results ?? 5)), 1), 8);
-  const body: Record<string, unknown> = { textQuery: query, maxResultCount: maxResults };
-  const bias = request.location_bias;
-  if (bias && Number.isFinite(bias.latitude) && Number.isFinite(bias.longitude)) {
-    body.locationBias = {
-      circle: {
-        center: { latitude: bias.latitude, longitude: bias.longitude },
-        radius: bias.radius_meters ?? 5000,
-      },
-    };
-  }
+  const bootstrap = await buildBootstrap(userId, null);
+  const context = `User finance snapshot: ${financeSummary(bootstrap)}`;
+  const purpose = parseString(request.requested_purpose, "place lookup for a finance decision");
+  const prompt = `You are EVA, a warm personal finance assistant. The user explicitly requested Beta Google Maps grounding. Use Google Maps data only for factual place information, keep the answer concise, and do not claim to complete purchases, bookings, or money movement. If Maps data is unavailable, say so.\nPurpose: ${purpose}\nQuestion: ${query}\n${context}`;
 
-  const response = await fetch("https://places.googleapis.com/v1/places:searchText", {
+  const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
     method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "X-Goog-Api-Key": apiKey,
-      "X-Goog-FieldMask": "places.displayName,places.formattedAddress,places.googleMapsUri,places.websiteUri,places.rating,places.priceLevel",
-    },
-    body: JSON.stringify(body),
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      tools: [{ googleMaps: {} }],
+      generationConfig: { temperature: 0.2, maxOutputTokens: 700 },
+    }),
   });
 
   const payload = await response.json().catch(() => null) as Record<string, unknown> | null;
@@ -185,38 +175,44 @@ export async function groundedPlaceSearch(userId: string, request: PlaceSearchRe
     return {
       beta: true,
       places: [],
-      finance_aware_summary: "Google Maps lookup failed just now. Please try again or search with a more specific place name.",
+      finance_aware_summary:
+        "Google Maps grounding was unavailable just now. Tell me the merchant, item, and price, and I will help with an affordability check from your EVA finances.",
       freshness_timestamp: new Date().toISOString(),
       confidence: "low",
     };
   }
 
-  const places = (Array.isArray(payload.places) ? payload.places : []).map((item) => {
-    const place = item as Record<string, unknown>;
-    const displayName = (place.displayName ?? {}) as Record<string, unknown>;
-    return {
-      name: parseString(displayName.text, "Unnamed place"),
-      address: parseString(place.formattedAddress) || null,
-      maps_url: parseString(place.googleMapsUri) || null,
-      website_url: parseString(place.websiteUri) || null,
-      rating: Number.isFinite(Number(place.rating)) ? Number(place.rating) : null,
-      price_level: priceLevelToText(place.priceLevel),
-    };
+  const candidates = Array.isArray(payload.candidates) ? payload.candidates : [];
+  const first = (candidates[0] ?? {}) as Record<string, unknown>;
+  const content = (first.content ?? {}) as Record<string, unknown>;
+  const parts = Array.isArray(content.parts) ? content.parts : [];
+  const answer = parts
+    .map((part) => typeof (part as Record<string, unknown>).text === "string" ? String((part as Record<string, unknown>).text) : "")
+    .join("\n")
+    .trim();
+  const grounding = (first.groundingMetadata ?? {}) as Record<string, unknown>;
+  const chunks = Array.isArray(grounding.groundingChunks) ? grounding.groundingChunks : [];
+  const places = chunks.flatMap((chunk) => {
+    const maps = ((chunk as Record<string, unknown>).maps ?? (chunk as Record<string, unknown>).place ?? {}) as Record<string, unknown>;
+    const uri = parseString(maps.uri ?? maps.googleMapsUri);
+    const title = parseString(maps.title ?? maps.name);
+    if (!uri && !title) return [];
+    return [{
+      name: title || "Google Maps result",
+      address: parseString(maps.address ?? maps.formattedAddress) || null,
+      maps_url: uri || null,
+      website_url: parseString(maps.websiteUri) || null,
+      rating: Number.isFinite(Number(maps.rating)) ? Number(maps.rating) : null,
+      price_level: parseString(maps.priceLevel) || null,
+    }];
   });
-
-  const bootstrap = await buildBootstrap(userId, null);
-  const summary = bootstrap.dashboard_summary;
-  const top = places[0];
-  const purpose = parseString(request.requested_purpose, "compare options");
-  const financeAwareSummary = top
-    ? `I found ${places.length} place${places.length === 1 ? "" : "s"} for ${purpose}. Start with ${top.name}${top.rating ? ` (${top.rating}/5)` : ""}. For affordability, compare the actual price against your projected monthly free cash of ${summary.monthly_cashflow.toFixed(2)} before committing.`
-    : "I could not find matching places. Try adding a city, neighborhood, or exact merchant name.";
 
   return {
     beta: true,
-    places,
-    finance_aware_summary: financeAwareSummary,
+    places: places.slice(0, 6),
+    finance_aware_summary:
+      answer || "Google Maps returned a grounded response, but EVA could not summarize it. Try a more specific place or location.",
     freshness_timestamp: new Date().toISOString(),
-    confidence: places.length ? "high" : "low",
+    confidence: places.length ? "high" : "medium",
   };
 }
