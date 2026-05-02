@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
 import {
@@ -36,6 +36,9 @@ import {
   formatCurrency,
 } from "@/lib/finance";
 import { cn } from "@/lib/utils";
+import { ForecastSection } from "@/features/dashboard/ForecastSection";
+import { SmartSavingsSection } from "@/features/dashboard/SmartSavingsSection";
+import { ShoppingAssistantSection } from "@/features/dashboard/ShoppingAssistantSection";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16, filter: "blur(4px)" },
@@ -241,7 +244,11 @@ export default function Dashboard() {
               className="rounded-[2rem] border border-border/40 bg-card/40 p-1 shadow-sm backdrop-blur-md"
             >
               <div className="rounded-[1.8rem] bg-background/50 p-6">
-                <DashboardOverview />
+                <DashboardOverview
+                  firstName={profile?.first_name}
+                  nextAction={bootstrap.advice[0] || { title: "Getting started", body: "Add your first transaction to get tailored advice.", ctaLabel: "Log now" }}
+                  onOpenNextAction={() => navigate("/transactions")}
+                />
               </div>
             </motion.div>
 
@@ -360,7 +367,8 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.6fr_1fr]">
-        <motion.div custom={11} initial="hidden" animate="visible" variants={fadeUp}>
+        <motion.div custom={11} initial="hidden" animate="visible" variants={fadeUp} className="space-y-6">
+          <ForecastSection />
           <AgentInsights />
         </motion.div>
 
@@ -439,6 +447,26 @@ export default function Dashboard() {
               ))}
             </div>
           )}
+        </motion.div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <motion.div
+          custom={13}
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+        >
+          <SmartSavingsSection />
+        </motion.div>
+
+        <motion.div
+          custom={14}
+          initial="hidden"
+          animate="visible"
+          variants={fadeUp}
+        >
+          <ShoppingAssistantSection />
         </motion.div>
       </div>
     </div>

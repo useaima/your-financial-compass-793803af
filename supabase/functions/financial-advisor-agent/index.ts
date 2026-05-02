@@ -7,7 +7,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const AI_URL = `${(Deno.env.get("VERCEL_AI_GATEWAY_BASE_URL") ?? Deno.env.get("AI_GATEWAY_BASE_URL") ?? "https://ai-gateway.vercel.sh/v1").replace(/\/$/, "")}/chat/completions`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -15,8 +15,8 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY or AI_GATEWAY_API is not configured");
+    const AI_GATEWAY_API_KEY = Deno.env.get("VERCEL_AI_GATEWAY_API_KEY") ?? Deno.env.get("AI_GATEWAY_API_KEY") ?? Deno.env.get("AI_GATEWAY_API") ?? Deno.env.get("VERCEL_OIDC_TOKEN");
+    if (!AI_GATEWAY_API_KEY) throw new Error("VERCEL_AI_GATEWAY_API_KEY or AI_GATEWAY_API_KEY is not configured");
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -98,11 +98,11 @@ CRITICAL RULES:
       const aiResponse = await fetch(AI_URL, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${LOVABLE_API_KEY}`,
+          Authorization: `Bearer ${AI_GATEWAY_API_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "google/gemini-2.0-flash-exp",
+          model: Deno.env.get("EVA_MODEL_CONVERSATION") ?? "google/gemini-2.0-flash",
           messages: [
             { role: "system", content: systemPrompt },
             { role: "user", content: "Analyze my recent spending and give me one proactive advice notification." }

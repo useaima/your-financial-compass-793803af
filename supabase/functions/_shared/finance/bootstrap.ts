@@ -94,6 +94,7 @@ export async function buildBootstrap(userId: string, email: string | null = null
     agentTasksResult,
     approvalRequestsResult,
     actionHistoryResult,
+    ...results
   ] = await Promise.all([
     admin.from("finance_profiles").select("*").eq("user_id", userId).maybeSingle(),
     admin.from("finance_goals").select("*").eq("user_id", userId).order("created_at", { ascending: true }),
@@ -107,6 +108,7 @@ export async function buildBootstrap(userId: string, email: string | null = null
     admin.from("agent_tasks").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(20),
     admin.from("approval_requests").select("*").eq("user_id", userId).order("created_at", { ascending: false }).limit(30),
     admin.from("finance_execution_receipts").select("*").eq("user_id", userId).order("executed_at", { ascending: false }).limit(40),
+    admin.from("public_user_profiles").select("is_admin").eq("user_id", userId).maybeSingle(),
   ]);
 
   if (profileResult.error) throw profileResult.error;
@@ -121,6 +123,8 @@ export async function buildBootstrap(userId: string, email: string | null = null
   if (agentTasksResult.error) throw agentTasksResult.error;
   if (approvalRequestsResult.error) throw approvalRequestsResult.error;
   if (actionHistoryResult.error) throw actionHistoryResult.error;
+  const publicProfileResult = results[results.length - 1];
+  if (publicProfileResult.error) throw publicProfileResult.error;
 
   const profile = (profileResult.data as FinanceProfile | null) ?? null;
   const goals = goalsResult.data ?? [];
@@ -134,6 +138,7 @@ export async function buildBootstrap(userId: string, email: string | null = null
   const agentTasks = agentTasksResult.data ?? [];
   const approvalRequests = approvalRequestsResult.data ?? [];
   const actionHistory = actionHistoryResult.data ?? [];
+  const isAdmin = Boolean((publicProfileResult.data as any)?.is_admin);
 
   const dashboardSummary = buildDashboardSummary(
     profile,
@@ -158,6 +163,7 @@ export async function buildBootstrap(userId: string, email: string | null = null
   return {
     user_id: userId,
     email,
+    isAdmin,
     has_onboarded: Boolean(profile?.onboarding_completed),
     migration: {
       legacy_public_user_id: profile?.legacy_public_user_id ?? null,

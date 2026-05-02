@@ -131,8 +131,8 @@ serve(async (req) => {
       savingsProjection: fallbackSavingsProjection,
     };
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API");
-    if (!LOVABLE_API_KEY) {
+    const AI_GATEWAY_API_KEY = Deno.env.get("VERCEL_AI_GATEWAY_API_KEY") ?? Deno.env.get("AI_GATEWAY_API_KEY") ?? Deno.env.get("AI_GATEWAY_API") ?? Deno.env.get("VERCEL_OIDC_TOKEN");
+    if (!AI_GATEWAY_API_KEY) {
       return new Response(JSON.stringify(fallbackResult), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -150,14 +150,14 @@ Provide recommendations for each subscription: "cancel" (high cost/low value), "
 Consider: category, price relative to typical costs, and potential redundancy.
 Return JSON with recommendations array containing: subscriptionId, action, reason, and monthly savings (if canceling).`;
 
-    const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const response = await fetch("https://ai-gateway.vercel.sh/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${AI_GATEWAY_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: Deno.env.get("EVA_MODEL_CONVERSATION") ?? "google/gemini-2.0-flash",
         messages: [
           { role: "system", content: systemPrompt },
           { role: "user", content: "Analyze my subscriptions and provide recommendations." },

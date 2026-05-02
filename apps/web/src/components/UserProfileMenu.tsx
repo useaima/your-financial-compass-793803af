@@ -8,6 +8,7 @@ import {
   LogOut,
   MessageCircle,
   MoonStar,
+  ShieldAlert,
   UserRound,
   Wallet,
 } from "lucide-react";
@@ -24,6 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { usePublicUser } from "@/context/PublicUserContext";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { getAuthProfileSeed } from "@/lib/authProfile";
@@ -77,7 +79,7 @@ export default function UserProfileMenu({
   contentClassName,
 }: UserProfileMenuProps) {
   const navigate = useNavigate();
-  const { bootstrap, signOut, user } = usePublicUser();
+  const { bootstrap, signOut, user, isAdmin } = usePublicUser();
   const isMobile = useIsMobile();
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -104,9 +106,13 @@ export default function UserProfileMenu({
     return `Member since ${format(parsed, "MMM yyyy")}`;
   }, [profile?.created_at]);
 
-  const navigateToSettings = (section: SettingsSection) => {
+  const navigateToSettings = (section: SettingsSection | 'admin') => {
     setMobileOpen(false);
-    navigate(buildSettingsHref(section));
+    if (section === 'admin') {
+      navigate('/admin');
+    } else {
+      navigate(buildSettingsHref(section));
+    }
   };
 
   const handleSignOut = async () => {
@@ -118,12 +124,13 @@ export default function UserProfileMenu({
     }
   };
 
-  const profileLinks: Array<{ label: string; icon: typeof UserRound; section: SettingsSection }> = [
+  const profileLinks: Array<{ label: string; icon: typeof UserRound; section: SettingsSection | 'admin' }> = [
     { label: "Profile", icon: UserRound, section: "profile" },
     { label: "Account", icon: Wallet, section: "account" },
     { label: "Notifications", icon: Bell, section: "notifications" },
     { label: "Billing", icon: CreditCard, section: "billing" },
     { label: "Settings", icon: MoonStar, section: "settings" },
+    ...(isAdmin ? [{ label: "Ops Dashboard", icon: ShieldAlert, section: "admin" as any }] : []),
     { label: "Help & Support", icon: CircleHelp, section: "help" },
     { label: "Feedback", icon: MessageCircle, section: "feedback" },
   ];
@@ -159,7 +166,10 @@ export default function UserProfileMenu({
     >
       <UserAvatar seed={avatarSeed} name={displayName} email={userEmail} className="h-11 w-11" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+          {isAdmin && <Badge variant="secondary" className="h-4 px-1 text-[8px] font-bold uppercase bg-primary/10 text-primary border-primary/20">Admin</Badge>}
+        </div>
         <p className="truncate text-xs text-muted-foreground">{userEmail}</p>
       </div>
       <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -245,7 +255,10 @@ export default function UserProfileMenu({
           <div className="flex items-center gap-3">
             <UserAvatar seed={avatarSeed} name={displayName} email={userEmail} className="h-12 w-12" />
             <div className="min-w-0">
-              <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-sm font-semibold text-foreground">{displayName}</p>
+                {isAdmin && <Badge variant="secondary" className="h-4 px-1 text-[8px] font-bold uppercase bg-primary/10 text-primary border-primary/20">Admin</Badge>}
+              </div>
               <p className="truncate text-xs font-normal text-muted-foreground">{userEmail}</p>
               <p className="mt-1 text-[0.72rem] font-normal uppercase tracking-[0.16em] text-muted-foreground">
                 {memberSince}

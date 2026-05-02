@@ -201,6 +201,56 @@
     scroll-behavior: auto !important;
     transition-duration: 0.01ms !important;
   }
+
+  /* OS-level reduced motion preference */
+  @media (prefers-reduced-motion: reduce) {
+    html:not([data-motion="full"]) {
+      scroll-behavior: auto;
+    }
+
+    html:not([data-motion="full"]) *,
+    html:not([data-motion="full"]) *::before,
+    html:not([data-motion="full"]) *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      scroll-behavior: auto !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+
+  /* High contrast mode for users who need more visual distinction */
+  @media (prefers-contrast: more) {
+    :root {
+      --border: 24 40% 40%;
+      --muted-foreground: 24 28% 16%;
+      --ring: 31 100% 42%;
+    }
+
+    .dark {
+      --border: 35 30% 50%;
+      --muted-foreground: 35 40% 90%;
+      --ring: 32 100% 65%;
+    }
+
+    a:focus-visible,
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible,
+    select:focus-visible,
+    [role="button"]:focus-visible,
+    [tabindex]:not([tabindex="-1"]):focus-visible {
+      box-shadow:
+        0 0 0 3px hsl(var(--background)),
+        0 0 0 6px hsl(var(--ring));
+    }
+  }
+
+  /* Mobile-first responsive base font */
+  @media (max-width: 767px) {
+    html {
+      font-size: 16px;
+    }
+  }
 }
 
 @layer utilities {

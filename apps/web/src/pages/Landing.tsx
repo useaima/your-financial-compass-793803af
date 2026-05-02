@@ -1,4 +1,4 @@
-﻿import { Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import BrandLockup from "@/components/BrandLockup";
 import { motion } from "framer-motion";
@@ -72,16 +72,16 @@ export default function Landing() {
           </nav>
         </header>
 
-        <main>
-          <section data-testid="landing-hero" className="mx-auto max-w-[1200px] px-6 pb-24 pt-20 text-center md:pt-32">
+        <main role="main" aria-label="Landing page">
+          <section data-testid="landing-hero" aria-label="Hero" className="mx-auto max-w-[1200px] px-6 pb-12 pt-14 text-center md:pb-24 md:pt-32">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-8"
+              className="space-y-6 md:space-y-8"
             >
               <div className="inline-flex items-center gap-2 rounded-full border border-primary/10 bg-primary/5 px-4 py-2 text-xs font-semibold text-primary shadow-[0_4px_12px_-4px_rgba(var(--primary),0.2)]">
-                <Sparkles className="h-3.5 w-3.5" />
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                 Your AI Finance Assistant
               </div>
 
@@ -90,17 +90,17 @@ export default function Landing() {
                 fetchPriority="high"
                 loading="eager"
                 size="lg"
-                iconClassName="h-16 w-16 md:h-20 md:w-20"
-                subtitleClassName="text-[0.72rem] tracking-[0.3em]"
-                titleClassName="text-[2.35rem] md:text-[3.5rem]"
+                iconClassName="h-12 w-12 md:h-20 md:w-20"
+                subtitleClassName="text-[0.62rem] tracking-[0.25em] md:text-[0.72rem] md:tracking-[0.3em]"
+                titleClassName="text-[1.8rem] md:text-[3.5rem]"
               />
 
               <h1 className="mx-auto max-w-4xl text-balance text-4xl font-bold leading-[1.05] tracking-tight text-foreground md:text-7xl">
-                Clarity for spending, <span className="text-primary">planning</span>, and calmer cashflow.
+                <span className="md:hidden">Money clarity, fast.</span><span className="hidden md:inline">Clarity for spending, <span className="text-primary">planning</span>, and calmer cashflow.</span>
               </h1>
 
-              <p className="mx-auto max-w-2xl text-lg leading-relaxed text-muted-foreground md:text-xl">
-                eva helps you understand where money is going, what is coming next, and which decisions deserve your attention now.
+              <p className="mx-auto max-w-xl text-base leading-relaxed text-muted-foreground md:max-w-2xl md:text-xl">
+                <span className="md:hidden">Ask EVA, track spending, and check what you can afford.</span><span className="hidden md:inline">eva helps you understand where money is going, what is coming next, and which decisions deserve your attention now.</span>
               </p>
 
               <div className="flex flex-col items-center justify-center gap-4 pt-4 sm:flex-row">
@@ -116,18 +116,18 @@ export default function Landing() {
                 </Link>
               </div>
 
-              <div className="mx-auto mt-16 flex max-w-4xl flex-col items-center gap-8 rounded-[2.5rem] border border-border/60 bg-card/40 px-6 py-10 shadow-[0_40px_100px_-40px_rgba(110,73,75,0.25)] backdrop-blur-2xl">
+              <div className="mx-auto mt-16 hidden max-w-4xl flex-col items-center gap-8 rounded-[2.5rem] border border-border/60 bg-card/40 px-6 py-10 shadow-[0_40px_100px_-40px_rgba(110,73,75,0.25)] backdrop-blur-2xl md:flex">
                 <div className="rounded-[1.8rem] border border-primary/20 bg-background/90 px-6 py-5 shadow-inner">
                   <BrandLockup align="center" size="md" />
                 </div>
 
                 <div className="grid w-full grid-cols-1 gap-6 sm:grid-cols-2">
                   <div className="group relative overflow-hidden rounded-3xl border border-border/40 shadow-2xl transition-all duration-500 hover:scale-[1.03] hover:shadow-primary/10">
-                    <img src="/images/dashboard_mockup.png" alt="EVA Dashboard Overview" className="aspect-[4/3] w-full object-cover" />
+                    <img src="/images/dashboard_mockup.png" alt="EVA Dashboard showing spending overview with category breakdown and financial health score" className="aspect-[4/3] w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                   </div>
                   <div className="group relative overflow-hidden rounded-3xl border border-border/40 shadow-2xl transition-all duration-500 hover:scale-[1.03] hover:shadow-primary/10">
-                    <img src="/images/subscriptions_mockup.png" alt="EVA Subscriptions Management" className="aspect-[4/3] w-full object-cover" />
+                    <img src="/images/subscriptions_mockup.png" alt="EVA Subscriptions page showing active subscriptions with monthly cost tracking" className="aspect-[4/3] w-full object-cover" />
                     <div className="absolute inset-0 bg-gradient-to-t from-background/80 to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                   </div>
                 </div>
@@ -153,14 +153,16 @@ export default function Landing() {
             </motion.div>
           </section>
 
-          <section className="mx-auto max-w-[1200px] px-6 py-24">
-            <header className="mb-12 max-w-2xl">
-              <h2 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">What eva helps you do every day</h2>
-              <p className="mt-4 text-lg text-muted-foreground">
-                Stay grounded in the numbers, understand what changed, and move from reactive spending to calmer planning.
+          {/* Features grid — compact 2-col on mobile, full 4-col on desktop */}
+          <section aria-label="Features" className="mx-auto max-w-[1200px] px-6 py-16 md:py-24">
+            <header className="mb-8 max-w-2xl md:mb-12">
+              <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-4xl">What eva helps you do every day</h2>
+              <p className="mt-3 text-base text-muted-foreground md:mt-4 md:text-lg">
+                <span className="md:hidden">AI-driven clarity for spending, planning, and habits.</span>
+                <span className="hidden md:inline">Stay grounded in the numbers, understand what changed, and move from reactive spending to calmer planning.</span>
               </p>
             </header>
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 md:gap-6 lg:grid-cols-4">
               {features.map((feature, i) => (
                 <motion.article
                   key={feature.title}
@@ -169,27 +171,28 @@ export default function Landing() {
                   whileInView="visible"
                   viewport={{ once: true }}
                   variants={fadeUp}
-                  className="group flex flex-col gap-4 rounded-[1.75rem] border border-border/80 bg-card/60 p-8 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/40 hover:bg-card/80 hover:shadow-xl"
+                  className="group flex flex-col gap-3 rounded-[1.25rem] border border-border/80 bg-card/60 p-4 shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-primary/40 hover:bg-card/80 hover:shadow-xl md:gap-4 md:rounded-[1.75rem] md:p-8"
                 >
-                  <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 shadow-sm ring-1 ring-primary/20 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                    <feature.icon className="h-6 w-6" />
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shadow-sm ring-1 ring-primary/20 transition-colors group-hover:bg-primary group-hover:text-primary-foreground md:h-12 md:w-12 md:rounded-2xl">
+                    <feature.icon className="h-5 w-5 md:h-6 md:w-6" aria-hidden="true" />
                   </div>
-                  <div className="space-y-2">
-                    <h3 className="text-lg font-bold text-foreground">{feature.title}</h3>
-                    <p className="text-sm leading-relaxed text-muted-foreground">{feature.desc}</p>
+                  <div className="space-y-1 md:space-y-2">
+                    <h3 className="text-sm font-bold text-foreground md:text-lg">{feature.title}</h3>
+                    <p className="hidden text-sm leading-relaxed text-muted-foreground md:block">{feature.desc}</p>
                   </div>
                 </motion.article>
               ))}
             </div>
           </section>
 
-          <section className="mx-auto max-w-[900px] px-6 py-24">
+          {/* FAQ section — hidden on mobile */}
+          <section aria-label="Frequently Asked Questions" className="mx-auto hidden max-w-[900px] px-6 py-24 md:block">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="rounded-[3rem] border border-border/60 bg-card/30 p-8 md:p-12 shadow-inner backdrop-blur-sm"
+              className="rounded-[3rem] border border-border/60 bg-card/30 p-8 shadow-inner backdrop-blur-sm md:p-12"
             >
               <header className="mb-12 text-center">
                 <h2 className="text-3xl font-bold text-foreground">Frequently Asked Questions</h2>
@@ -200,16 +203,16 @@ export default function Landing() {
           </section>
         </main>
 
-        <footer className="border-t border-border/40 bg-card/20 px-6 py-12 backdrop-blur-md">
-          <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-8 md:flex-row">
-            <div className="flex flex-col items-center gap-4 md:items-start">
+        <footer role="contentinfo" className="border-t border-border/40 bg-card/20 px-6 py-8 backdrop-blur-md md:py-12">
+          <div className="mx-auto flex max-w-[1200px] flex-col items-center justify-between gap-6 md:flex-row md:gap-8">
+            <div className="flex flex-col items-center gap-3 md:items-start md:gap-4">
               <BrandLockup size="sm" iconClassName="h-6 w-6" />
               <p className="text-sm text-muted-foreground">© 2026 eva. Built for calmer finance.</p>
             </div>
-            <nav className="flex items-center gap-8">
+            <nav aria-label="Footer navigation" className="flex items-center gap-6 md:gap-8">
               <Link to="/terms" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">Terms</Link>
               <Link to="/privacy" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">Privacy</Link>
-              <a href="https://twitter.com/eva_finance" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary">Twitter</a>
+              <a href="https://twitter.com/eva_finance" target="_blank" rel="noreferrer" className="text-sm font-medium text-muted-foreground transition-colors hover:text-primary" aria-label="Follow eva on Twitter">Twitter</a>
             </nav>
           </div>
         </footer>

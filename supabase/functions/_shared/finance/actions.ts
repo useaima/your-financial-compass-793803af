@@ -17,6 +17,7 @@ import {
   updateAgentMode,
 } from "./execution.ts";
 import {
+  analyzeMedia as analyzeMediaImport,
   analyzeReceiptImage as analyzeReceiptImageImport,
   buildReceiptForwardingDetails as buildReceiptForwardingAddress,
   importCsvTransactions as importCsvTransactionsImport,
@@ -336,6 +337,21 @@ export async function handleFinanceCoreAction(params: {
     const fileName = typeof body.file_name === "string" ? body.file_name : null;
     await analyzeReceiptImageImport(user.id, imageDataUrl, fileName);
     return buildBootstrap(user.id, user.email);
+  }
+
+  if (action === "analyze_media") {
+    return analyzeMediaImport(user.id, {
+      media_data_url: String(body.media_data_url ?? ""),
+      media_type: body.media_type === "video_frame" ? "video_frame" : "image",
+      source:
+        body.source === "chat_camera"
+          ? "chat_camera"
+          : body.source === "chat_video"
+            ? "chat_video"
+            : "chat_upload",
+      prompt: String(body.prompt ?? ""),
+      file_name: typeof body.file_name === "string" ? body.file_name : null,
+    });
   }
 
   if (action === "review_draft_transaction") {

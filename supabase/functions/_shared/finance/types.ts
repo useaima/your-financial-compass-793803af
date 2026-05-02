@@ -366,6 +366,43 @@ export type SensitiveActionCodeVerifyResult = {
   expires_at: string;
 };
 
+export type MediaAnalysisSource = "chat_upload" | "chat_camera" | "chat_video";
+export type MediaAnalysisType = "image" | "video_frame";
+
+export type MediaAnalysisRequest = {
+  media_data_url: string;
+  media_type: MediaAnalysisType;
+  source: MediaAnalysisSource;
+  prompt: string;
+  file_name?: string | null;
+};
+
+export type MediaAnalysisResult = {
+  beta: true;
+  summary: string;
+  recommendation: string;
+  finance_context: string;
+  confidence: "low" | "medium" | "high";
+  detected_items: Array<{ label: string; category: string; price_hint: number | null }>;
+  suggested_next_steps: string[];
+};
+
+export type ForecastDataPoint = {
+  date: string;
+  balance: number;
+  is_projected: boolean;
+};
+
+export type SmartSavingsChallenge = {
+  id: string;
+  title: string;
+  description: string;
+  target_savings: number;
+  potential_impact: string;
+  category: string;
+  action_cta: string;
+};
+
 export type ReceiptImageAnalysis = {
   merchant?: unknown;
   transaction_date?: unknown;

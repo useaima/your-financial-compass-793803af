@@ -22,6 +22,7 @@ export interface UserProfile {
   agent_mode: AgentMode;
   autopilot_high_risk_enabled: boolean;
   password_setup_completed: boolean;
+  is_admin: boolean;
   cash_balance: number;
   monthly_income: number;
   monthly_fixed_expenses: number;
@@ -444,6 +445,90 @@ export interface ExecutionReceipt {
   reconciled_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export type BetaFeatureKey =
+  | "voice_input"
+  | "live_camera"
+  | "media_analysis"
+  | "safe_insights"
+  | "custom_alerts"
+  | "monthly_reports";
+
+export type MediaAnalysisSource = "chat_upload" | "chat_camera" | "chat_video";
+export type MediaAnalysisType = "image" | "video_frame";
+
+export interface MediaAnalysisRequest {
+  media_data_url: string;
+  media_type: MediaAnalysisType;
+  source: MediaAnalysisSource;
+  prompt: string;
+  file_name?: string | null;
+}
+
+export interface MediaAnalysisResult {
+  beta: true;
+  summary: string;
+  recommendation: string;
+  finance_context: string;
+  confidence: "low" | "medium" | "high";
+  detected_items: Array<{ label: string; category: string; price_hint: number | null }>;
+  suggested_next_steps: string[];
+}
+
+export interface VoiceInputState {
+  supported: boolean;
+  listening: boolean;
+  transcript: string;
+  error: string | null;
+}
+
+export interface LiveCameraSessionState {
+  supported: boolean;
+  active: boolean;
+  permission_state: "unknown" | "granted" | "denied" | "unavailable";
+  error: string | null;
+}
+
+export interface AppContentRecord {
+  id: string;
+  key: string;
+  title: string;
+  body: string;
+  surface: string;
+  is_active: boolean;
+  updated_at: string;
+}
+
+export interface ContactCrmRecord {
+  id: string;
+  user_id: string | null;
+  email: string;
+  opted_in: boolean;
+  source: string;
+  last_event_at: string | null;
+}
+
+export interface CustomAlertRule {
+  id: string;
+  user_id: string;
+  rule_type: "budget_drift" | "subscription_change" | "spending_threshold" | "bill_due";
+  label: string;
+  threshold_amount: number | null;
+  category: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface MonthlyFinanceReport {
+  id: string;
+  user_id: string;
+  period: string;
+  status: "ready" | "needs_more_data";
+  headline: string;
+  highlights: string[];
+  alerts: string[];
+  generated_at: string;
 }
 
 export interface ToolResult<TData = Record<string, unknown>> {

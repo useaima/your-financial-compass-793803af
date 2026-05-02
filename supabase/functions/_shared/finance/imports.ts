@@ -4,6 +4,8 @@ import { consumeSensitiveActionVerification } from "./security.ts";
 import type {
   DraftImportSource,
   FinanceDraftTransaction,
+  MediaAnalysisRequest,
+  MediaAnalysisResult,
   ReceiptImageAnalysis,
 } from "./types.ts";
 import {
@@ -324,6 +326,110 @@ export async function analyzeReceiptImage(
     sourceRef: fileName,
     drafts,
   });
+}
+
+function normalizeMediaAnalysisResult(input: Record<string, unknown> | null): MediaAnalysisResult {
+  const items = Array.isArray(input?.detected_items)
+    ? input.detected_items.map((item) => {
+        const value = item && typeof item === "object" ? item as Record<string, unknown> : {};
+        const price = parseNumber(value.price_hint);
+        return {
+          label: parseString(value.label, "Item"),
+          category: normalizeCategory(value.category) || "Other",
+          price_hint: price > 0 ? price : null,
+        };
+      }).slice(0, 8)
+    : [];
+
+  const steps = Array.isArray(input?.suggested_next_steps)
+    ? input.suggested_next_steps.map((step) => parseString(step)).filter(Boolean).slice(0, 4)
+    : [];
+
+  const confidence = input?.confidence === "high" || input?.confidence === "medium" ? input.confidence : "low";
+
+  return {
+    beta: true,
+    summary: parseString(input?.summary, "I can see the item, but I need a little more detail to give a confident finance answer."),
+    recommendation: parseString(input?.recommendation, "Share the price or ask whether it fits your budget, and I will compare it with your current cash flow."),
+    finance_context: parseString(input?.finance_context, "This advice is grounded in your saved EVA finance profile when available."),
+    confidence,
+    detected_items: items,
+    suggested_next_steps: steps.length > 0 ? steps : ["Tell EVA the price if it is not visible.", "Ask for an affordability check before buying."],
+  };
+}
+
+export async function analyzeMedia(
+  userId: string,
+  request: MediaAnalysisRequest,
+): Promise<MediaAnalysisResult> {
+  const mediaDataUrl = parseString(request.media_data_url);
+  if (!mediaDataUrl.startsWith("data:image/")) {
+    throw new Error("Please upload or capture a valid image frame for analysis.");
+  }
+
+  const admin = createAdminClient();
+  const [{ data: profile }, { data: spending }] = await Promise.all([
+    admin
+      .from("finance_profiles")
+      .select("cash_balance, monthly_income, monthly_fixed_expenses, target_monthly_savings")
+      .eq("user_id", userId)
+      .maybeSingle(),
+    admin
+      .from("finance_spending_events")
+      .select("date,total,items")
+      .eq("user_id", userId)
+      .order("date", { ascending: false })
+      .limit(20),
+  ]);
+
+  const recentSpend = Array.isArray(spending)
+    ? spending.reduce((sum, event) => sum + parseNumber(event.total), 0)
+    : 0;
+  const profileContext = profile
+    ? `Cash balance: $${parseNumber(profile.cash_balance)}. Monthly income: $${parseNumber(profile.monthly_income)}. Fixed expenses: $${parseNumber(profile.monthly_fixed_expenses)}. Target savings: $${parseNumber(profile.target_monthly_savings)}. Recent tracked spend sample: $${recentSpend}.`
+    : "No completed finance profile is available yet.";
+
+  const userPrompt = parseString(request.prompt, "What should I know financially about this item?").slice(0, 600);
+  const response = await requestGatewayCompletion({
+    model: EVA_MODELS.conversation,
+    response_format: { type: "json_object" },
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are EVA, a warm personal-finance assistant. Analyze user-provided photos or extracted video frames only for finance context. Keep advice concise, friendly, and practical. Do not claim certainty about prices unless visible. Do not mutate financial records. Return only JSON with shape: " +
+          '{"summary":"string","recommendation":"string","finance_context":"string","confidence":"low|medium|high","detected_items":[{"label":"string","category":"Food|Transport|Entertainment|Shopping|Bills|Health|Education|Subscriptions|Groceries|Personal Care|Other","price_hint":0}],"suggested_next_steps":["string"]}.',
+      },
+      {
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text:
+              `Question: ${userPrompt}\nSource: ${request.source}. File: ${request.file_name ?? "camera-frame"}.\nFinance context: ${profileContext}\nGive a safe affordability-oriented answer.`,
+          },
+          {
+            type: "image_url",
+            image_url: {
+              url: mediaDataUrl,
+              detail: "auto",
+            },
+          },
+        ],
+      },
+    ],
+  });
+
+  if (!response?.ok) {
+    if (response) {
+      console.error("media analysis gateway error:", response.status, await response.text());
+    }
+    throw new Error("EVA could not analyze that media right now. Try again or describe it in chat.");
+  }
+
+  const responseData = await response.json().catch(() => null);
+  const parsed = parseGatewayJson<Record<string, unknown>>(responseData?.choices?.[0]?.message?.content);
+  return normalizeMediaAnalysisResult(parsed);
 }
 
 export async function importCsvTransactions(

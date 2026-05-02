@@ -8,9 +8,12 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import AppErrorDialog from "@/components/AppErrorDialog";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import BrandLockup from "@/components/BrandLockup";
 import { Button } from "@/components/ui/button";
 import Layout from "@/components/Layout";
+import RouteAnnouncer from "@/components/RouteAnnouncer";
+import SkipToContent from "@/components/SkipToContent";
 import { AppPreferencesProvider } from "@/context/AppPreferencesContext";
 import { PublicUserProvider, usePublicUser } from "@/context/PublicUserContext";
 import { useAppPreferences } from "@/context/app-preferences-context";
@@ -45,14 +48,31 @@ async function recoverFromStaleChunk() {
 
 function lazyPage(path: keyof typeof pageLoaders) {
   return lazy(async () => {
-    try {
-      return await pageLoaders[path]();
-    } catch (error) {
-      if (isChunkLoadError(error)) {
-        void recoverFromStaleChunk();
+    let retries = 0;
+    const maxRetries = 2;
+
+    while (retries <= maxRetries) {
+      try {
+        console.log(`[eva] Loading page chunk: ${path} (attempt ${retries + 1})`);
+        const module = await pageLoaders[path]();
+        console.log(`[eva] Successfully loaded chunk: ${path}`);
+        return module;
+      } catch (error) {
+        console.error(`[eva] Failed to load chunk: ${path}`, error);
+        if (isChunkLoadError(error)) {
+          if (retries < maxRetries) {
+            retries++;
+            console.warn(`[eva] Retrying chunk load in ${retries}s...`);
+            await new Promise((resolve) => setTimeout(resolve, 1000 * retries));
+            continue;
+          }
+          console.error(`[eva] Max retries reached for chunk: ${path}. Triggering stale chunk recovery.`);
+          void recoverFromStaleChunk();
+        }
+        throw error;
       }
-      throw error;
     }
+    throw new Error(`Failed to load page chunk after ${maxRetries} retries: ${path}`);
   });
 }
 
@@ -75,6 +95,8 @@ const Budget = lazyPage("./pages/Budget.tsx");
 const SpendingHistory = lazyPage("./pages/SpendingHistory.tsx");
 const Onboarding = lazyPage("./pages/Onboarding.tsx");
 const Auth = lazyPage("./pages/Auth.tsx");
+const Vault = lazyPage("./pages/Vault.tsx");
+const Admin = lazyPage("./pages/Admin.tsx");
 
 const queryClient = new QueryClient();
 
@@ -207,7 +229,9 @@ function ExternalRedirect({ href }: { href: string }) {
 
 const AppPage = ({ children }: { children: React.ReactNode }) => (
   <Layout>
-    <Suspense fallback={<InShellRouteLoading />}>{children}</Suspense>
+    <ErrorBoundary>
+      <Suspense fallback={<InShellRouteLoading />}>{children}</Suspense>
+    </ErrorBoundary>
   </Layout>
 );
 
@@ -215,6 +239,10 @@ function ProtectedPage({ children }: { children: React.ReactNode }) {
   const { bootstrap, isAuthenticated, loading, requiresPasswordSetup, workspaceError } =
     usePublicUser();
   const location = useLocation();
+
+  if (workspaceError) {
+    return <WorkspaceRecovery description={workspaceError} />;
+  }
 
   if (loading) {
     return <FullPageLoading />;
@@ -226,16 +254,6 @@ function ProtectedPage({ children }: { children: React.ReactNode }) {
 
   if (requiresPasswordSetup) {
     return <Navigate to="/auth?mode=set-password" replace state={{ from: location.pathname }} />;
-  }
-
-  if (
-    workspaceError &&
-    !bootstrap.has_onboarded &&
-    !bootstrap.profile &&
-    bootstrap.goals.length === 0 &&
-    bootstrap.spending_events.length === 0
-  ) {
-    return <WorkspaceRecovery description={workspaceError} />;
   }
 
   if (!bootstrap.has_onboarded) {
@@ -308,54 +326,60 @@ function AuthPage() {
 }
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <ThemeProvider
-      attribute="class"
-      defaultTheme="light"
-      enableSystem
-      enableColorScheme
-      disableTransitionOnChange
-      storageKey="eva-theme"
-    >
-      <AppPreferencesProvider>
-        <AppMotionShell>
-          <TooltipProvider>
-            <Toaster />
-            <Sonner />
-            <AppErrorDialog />
-            <BrowserRouter>
-              <PublicUserProvider>
-                <Routes>
-                  <Route path="/" element={<Landing />} />
-                  <Route path="/auth" element={<AuthPage />} />
-                  <Route path="/terms" element={<RouteSuspense><Terms /></RouteSuspense>} />
-                  <Route path="/privacy" element={<RouteSuspense><Privacy /></RouteSuspense>} />
-                  <Route path="/onboarding" element={<OnboardingPage />} />
-                  <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
-                  <Route path="/approvals" element={<ProtectedPage><ApprovalInbox /></ProtectedPage>} />
-                  <Route path="/action-history" element={<ProtectedPage><ActionHistory /></ProtectedPage>} />
-                  <Route path="/chat" element={<ProtectedPage><Chat /></ProtectedPage>} />
-                  <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
-                  <Route path="/goals" element={<ProtectedPage><Goals /></ProtectedPage>} />
-                  <Route path="/subscriptions" element={<ProtectedPage><Subscriptions /></ProtectedPage>} />
-                  <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
-                  <Route path="/financial-statement" element={<ProtectedPage><FinancialStatement /></ProtectedPage>} />
-                  <Route path="/insights" element={<ProtectedPage><Insights /></ProtectedPage>} />
-                  <Route path="/news" element={<ProtectedPage><News /></ProtectedPage>} />
-                  <Route path="/stock-picks" element={<ProtectedPage><StockPicks /></ProtectedPage>} />
-                  <Route path="/help" element={<ExternalRedirect href={SUPPORT_BASE_URL} />} />
-                  <Route path="/feedback" element={<Navigate to="/settings?section=feedback" replace />} />
-                  <Route path="/budget" element={<ProtectedPage><Budget /></ProtectedPage>} />
-                  <Route path="/spending-history" element={<ProtectedPage><SpendingHistory /></ProtectedPage>} />
-                  <Route path="*" element={<RouteSuspense><NotFound /></RouteSuspense>} />
-                </Routes>
-              </PublicUserProvider>
-            </BrowserRouter>
-          </TooltipProvider>
-        </AppMotionShell>
-      </AppPreferencesProvider>
-    </ThemeProvider>
-  </QueryClientProvider>
+  <ErrorBoundary context="Eva application">
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider
+        attribute="class"
+        defaultTheme="light"
+        enableSystem
+        enableColorScheme
+        disableTransitionOnChange
+        storageKey="eva-theme"
+      >
+        <AppPreferencesProvider>
+          <AppMotionShell>
+            <TooltipProvider>
+              <Toaster />
+              <Sonner />
+              <AppErrorDialog />
+              <BrowserRouter>
+                <SkipToContent />
+                <RouteAnnouncer />
+                <PublicUserProvider>
+                  <Routes>
+                    <Route path="/" element={<Landing />} />
+                    <Route path="/auth" element={<AuthPage />} />
+                    <Route path="/terms" element={<RouteSuspense><Terms /></RouteSuspense>} />
+                    <Route path="/privacy" element={<RouteSuspense><Privacy /></RouteSuspense>} />
+                    <Route path="/onboarding" element={<OnboardingPage />} />
+                    <Route path="/dashboard" element={<ProtectedPage><Dashboard /></ProtectedPage>} />
+                    <Route path="/approvals" element={<ProtectedPage><ApprovalInbox /></ProtectedPage>} />
+                    <Route path="/action-history" element={<ProtectedPage><ActionHistory /></ProtectedPage>} />
+                    <Route path="/chat" element={<ProtectedPage><Chat /></ProtectedPage>} />
+                    <Route path="/transactions" element={<ProtectedPage><Transactions /></ProtectedPage>} />
+                    <Route path="/goals" element={<ProtectedPage><Goals /></ProtectedPage>} />
+                    <Route path="/subscriptions" element={<ProtectedPage><Subscriptions /></ProtectedPage>} />
+                    <Route path="/vault" element={<ProtectedPage><Vault /></ProtectedPage>} />
+                    <Route path="/admin" element={<ProtectedPage><Admin /></ProtectedPage>} />
+                    <Route path="/settings" element={<ProtectedPage><Settings /></ProtectedPage>} />
+                    <Route path="/financial-statement" element={<ProtectedPage><FinancialStatement /></ProtectedPage>} />
+                    <Route path="/insights" element={<ProtectedPage><Insights /></ProtectedPage>} />
+                    <Route path="/news" element={<ProtectedPage><News /></ProtectedPage>} />
+                    <Route path="/stock-picks" element={<ProtectedPage><StockPicks /></ProtectedPage>} />
+                    <Route path="/help" element={<ExternalRedirect href={SUPPORT_BASE_URL} />} />
+                    <Route path="/feedback" element={<Navigate to="/settings?section=feedback" replace />} />
+                    <Route path="/budget" element={<ProtectedPage><Budget /></ProtectedPage>} />
+                    <Route path="/spending-history" element={<ProtectedPage><SpendingHistory /></ProtectedPage>} />
+                    <Route path="*" element={<RouteSuspense><NotFound /></RouteSuspense>} />
+                  </Routes>
+                </PublicUserProvider>
+              </BrowserRouter>
+            </TooltipProvider>
+          </AppMotionShell>
+        </AppPreferencesProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
+  </ErrorBoundary>
 );
 
 export default App;

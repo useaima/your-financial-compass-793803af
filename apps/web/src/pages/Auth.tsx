@@ -409,18 +409,18 @@ export default function Auth({ forcedMode }: AuthProps) {
     : signUpPasswordStrength.level;
 
   return (
-    <div data-testid="auth-shell" className="relative min-h-screen overflow-hidden bg-background px-4 py-6 md:px-8 md:py-10">
+    <div data-testid="auth-shell" role="main" aria-label="Authentication" className="relative min-h-screen overflow-hidden bg-background px-4 py-4 md:px-8 md:py-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[32rem]">
         <div className="absolute left-1/2 top-[-10rem] h-[28rem] w-[46rem] -translate-x-1/2 rounded-full bg-primary/16 blur-3xl" />
         <div className="absolute right-[6%] top-24 h-56 w-56 rounded-full bg-[hsl(149_53%_35%/0.06)] blur-3xl" />
       </div>
 
-      <div className="relative mx-auto flex min-h-[calc(100vh-3rem)] max-w-6xl flex-col justify-center gap-8 md:grid md:grid-cols-[1.05fr_0.95fr] md:items-center">
+      <div className="relative mx-auto flex min-h-[calc(100vh-2rem)] max-w-6xl flex-col justify-center gap-8 md:min-h-[calc(100vh-3rem)] md:grid md:grid-cols-[1.05fr_0.95fr] md:items-center">
         <motion.div
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="space-y-6 md:pr-6"
+          className="hidden space-y-6 md:block md:pr-6"
         >
           <Link
             to="/"
@@ -479,8 +479,15 @@ export default function Auth({ forcedMode }: AuthProps) {
           initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.08 }}
-          className="rounded-[2rem] border border-border/80 bg-card/96 p-6 shadow-[0_32px_90px_-52px_rgba(110,73,75,0.36)] backdrop-blur-xl md:p-8"
+          className="rounded-[1.6rem] border border-border/80 bg-card/96 p-5 shadow-[0_32px_90px_-52px_rgba(110,73,75,0.36)] backdrop-blur-xl md:rounded-[2rem] md:p-8"
+          role="region"
+          aria-label="Authentication form"
         >
+          <Link data-testid="auth-mobile-home" to="/" className="mb-5 inline-flex items-center gap-2 rounded-full border border-border bg-background px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm md:hidden">
+            <img src="/apple-touch-icon.png" alt="eva app icon" width={32} height={32} className="h-5 w-5 rounded-lg" />
+            Back to eva
+          </Link>
+
           <div className="mb-6 space-y-2">
             <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
               {currentMode === "signup" && "Sign up"}
@@ -829,7 +836,7 @@ export default function Auth({ forcedMode }: AuthProps) {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-background/70 px-4 py-4">
+              <div className="hidden rounded-2xl border border-border bg-background/70 px-4 py-4 md:block">
                 <p className="text-sm font-medium text-foreground">What happens next</p>
                 <div className="mt-3 space-y-3 text-sm text-muted-foreground">
                   <div className="flex items-start gap-2">
@@ -851,7 +858,7 @@ export default function Auth({ forcedMode }: AuthProps) {
                 </div>
               </div>
 
-              <div className="rounded-2xl border border-border bg-background/70 p-4">
+              <div className="hidden rounded-2xl border border-border bg-background/70 p-4 md:block">
                 <p className="text-sm font-medium text-foreground">Choose how to verify</p>
                 <p className="mt-1 text-sm text-muted-foreground">
                   You can finish verification with a magic link or by entering the email code if your inbox shows one.
@@ -1077,7 +1084,7 @@ export default function Auth({ forcedMode }: AuthProps) {
             </form>
           )}
 
-          <div className="mt-6 rounded-[1.4rem] border border-border/80 bg-background/75 p-4">
+          <div className="mt-6 hidden rounded-[1.4rem] border border-border/80 bg-background/75 p-4 md:block">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">
               Need help?
             </p>

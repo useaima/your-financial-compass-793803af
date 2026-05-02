@@ -11,6 +11,8 @@ import {
   Newspaper,
   TrendingUp,
   Menu,
+  Lock,
+  ShieldAlert,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -23,6 +25,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import UserProfileMenu from "./UserProfileMenu";
+import { usePublicUser } from "@/context/PublicUserContext";
 
 type NavItem = {
   path: string;
@@ -44,6 +47,7 @@ const intelligenceMenuItems: NavItem[] = [
   { path: "/budget", label: "Budget Plan", icon: PieChart },
   { path: "/goals", label: "Financial Goals", icon: Target },
   { path: "/subscriptions", label: "Subscriptions", icon: CreditCard },
+  { path: "/vault", label: "Document Vault", icon: Lock },
 ];
 
 const actionMenuItems: NavItem[] = [
@@ -145,29 +149,50 @@ function NavigationButton({
 export default function Layout({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const { isAdmin } = usePublicUser();
   const activePath = location.pathname;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  const navigationItems = useMemo(() => {
+    const sections = [...navigationSections];
+    if (isAdmin) {
+      sections.push({
+        label: "Ops",
+        items: [{ path: "/admin", label: "Ops Dashboard", icon: ShieldAlert }]
+      });
+    }
+    return sections;
+  }, [isAdmin]);
+
+  const allNavItems = useMemo(() => navigationItems.flatMap(s => s.items), [navigationItems]);
 
   useEffect(() => {
     setIsMobileNavOpen(false);
   }, [activePath]);
 
   const activeSectionLabel = useMemo(() => {
-    const activeItem = desktopMenuItems.find((item) => item.path === activePath);
+    const activeItem = allNavItems.find((item) => item.path === activePath);
     return activeItem?.label ?? "Workspace";
-  }, [activePath]);
+  }, [activePath, allNavItems]);
 
   return (
     <div className="flex min-h-screen bg-background text-foreground selection:bg-primary/20">
-      <aside className="window-controls-safe-sidebar fixed inset-y-0 left-0 z-30 hidden h-screen w-[236px] flex-col gap-4 border-r border-border/60 bg-[hsl(var(--sidebar-background)/0.8)] p-4 pt-5 shadow-[20px_0_50px_-40px_rgba(110,73,75,0.2)] backdrop-blur-2xl md:flex">
+      <a href="#main-content" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-xl focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground">
+        Skip to main content
+      </a>
+      <aside
+        role="complementary"
+        aria-label="Sidebar navigation"
+        className="window-controls-safe-sidebar fixed inset-y-0 left-0 z-30 hidden h-screen w-[236px] flex-col gap-4 border-r border-border/60 bg-[hsl(var(--sidebar-background)/0.8)] p-4 pt-5 shadow-[20px_0_50px_-40px_rgba(110,73,75,0.2)] backdrop-blur-2xl md:flex"
+      >
         <div className="flex items-center justify-between px-1">
           <AppLogoButton onClick={() => navigate("/dashboard")} />
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 scrollbar-none">
-          <nav data-testid="desktop-navigation" className="space-y-3 pb-2">
+          <nav data-testid="desktop-navigation" aria-label="Main navigation" className="space-y-3 pb-2">
             <div className="space-y-1 rounded-[1.8rem] border border-border/40 bg-card/40 p-2.5 shadow-[0_20px_40px_-30px_rgba(110,73,75,0.12)] backdrop-blur-md">
-              {desktopMenuItems.map((item, idx) => (
+              {allNavItems.map((item, idx) => (
                 <NavigationButton
                   key={item.path}
                   item={item}
@@ -185,7 +210,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
         <UserProfileMenu compact />
       </div>
 
-      <header className="fixed inset-x-0 top-0 z-40 border-b border-border/40 bg-[hsl(var(--background)/0.75)] shadow-[0_12px_24px_-20px_rgba(110,73,75,0.15)] backdrop-blur-xl md:hidden">
+      <header role="banner" aria-label="Mobile header" className="fixed inset-x-0 top-0 z-40 border-b border-border/40 bg-[hsl(var(--background)/0.75)] shadow-[0_12px_24px_-20px_rgba(110,73,75,0.15)] backdrop-blur-xl md:hidden">
         <div data-testid="mobile-header" className="flex h-16 items-center justify-between gap-3 px-4">
           <Sheet open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
             <SheetTrigger asChild>
@@ -223,7 +248,7 @@ export default function Layout({ children }: { children: React.ReactNode }) {
 
               <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-6 pb-12 scrollbar-none">
                 <nav data-testid="mobile-navigation" className="space-y-7 pb-6" aria-label="Mobile navigation">
-                  {navigationSections.map((section, sIdx) => (
+                  {navigationItems.map((section, sIdx) => (
                     <motion.div
                       key={section.label}
                       className="space-y-3"
@@ -260,7 +285,11 @@ export default function Layout({ children }: { children: React.ReactNode }) {
       </header>
 
       <main
+        id="main-content"
+        role="main"
+        aria-label={activeSectionLabel}
         data-testid="app-shell-main"
+        tabIndex={-1}
         className="window-controls-safe-main flex-1 px-0 pb-8 pt-16 md:ml-[236px] md:pr-20 md:pt-0"
       >
         <AnimatePresence mode="wait">

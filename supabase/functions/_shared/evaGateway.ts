@@ -1,13 +1,31 @@
-export const EVA_AI_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const DEFAULT_AI_GATEWAY_BASE_URL = "https://ai-gateway.vercel.sh/v1";
+
+function getGatewayBaseUrl() {
+  return (
+    Deno.env.get("VERCEL_AI_GATEWAY_BASE_URL") ??
+    Deno.env.get("AI_GATEWAY_BASE_URL") ??
+    DEFAULT_AI_GATEWAY_BASE_URL
+  ).replace(/\/$/, "");
+}
+
+export function getEvaGatewayUrl() {
+  return `${getGatewayBaseUrl()}/chat/completions`;
+}
 
 export const EVA_MODELS = {
-  extraction: "google/gemini-2.5-flash-lite",
-  conversation: "google/gemini-2.5-flash",
-  planning: "google/gemini-2.5-pro",
+  extraction: Deno.env.get("EVA_MODEL_EXTRACTION") ?? "google/gemini-2.0-flash",
+  conversation: Deno.env.get("EVA_MODEL_CONVERSATION") ?? "google/gemini-2.0-flash",
+  planning: Deno.env.get("EVA_MODEL_PLANNING") ?? "google/gemini-2.0-pro-exp-02-15",
 } as const;
 
 export function getEvaGatewayApiKey() {
-  return Deno.env.get("LOVABLE_API_KEY") ?? Deno.env.get("AI_GATEWAY_API") ?? "";
+  return (
+    Deno.env.get("VERCEL_AI_GATEWAY_API_KEY") ??
+    Deno.env.get("AI_GATEWAY_API_KEY") ??
+    Deno.env.get("AI_GATEWAY_API") ??
+    Deno.env.get("VERCEL_OIDC_TOKEN") ??
+    ""
+  );
 }
 
 type GatewayRequest = {
@@ -25,7 +43,7 @@ export async function requestGatewayCompletion(payload: GatewayRequest) {
     return null;
   }
 
-  const response = await fetch(EVA_AI_URL, {
+  const response = await fetch(getEvaGatewayUrl(), {
     method: "POST",
     headers: {
       Authorization: `Bearer ${apiKey}`,

@@ -27,8 +27,8 @@ test.describe("public routes", () => {
     await expect(page.getByTestId("auth-signin-form")).toBeVisible();
   });
 
-  test("terms, privacy, and install pages render", async ({ page }) => {
-    for (const path of ["/terms", "/privacy", "/install"]) {
+  test("terms and privacy pages render", async ({ page }) => {
+    for (const path of ["/terms", "/privacy"]) {
       await page.goto(path);
       await expect(page.locator("main, body")).toContainText(/./);
     }

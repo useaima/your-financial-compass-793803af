@@ -15,6 +15,7 @@ import {
   SUPABASE_SETUP_MESSAGE,
 } from "@/integrations/supabase/client";
 import {
+  analyzeMedia as analyzeWorkspaceMedia,
   analyzeReceiptImage as analyzeWorkspaceReceiptImage,
   checkAffordability as requestAffordabilityCheck,
   completeOnboarding,
@@ -360,6 +361,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
       authLoading,
       authProfileSeed,
       requiresPasswordSetup,
+      isAdmin: bootstrap.profile?.is_admin ?? false,
       bootstrap,
       loading,
       refreshing,
@@ -393,6 +395,7 @@ export function PublicUserProvider({ children }: { children: ReactNode }) {
         runMutation(() => importWorkspaceCsvTransactions(csvText, fileName)),
       analyzeReceiptImage: async (imageDataUrl, fileName) =>
         runMutation(() => analyzeWorkspaceReceiptImage(imageDataUrl, fileName)),
+      analyzeMedia: async (request) => analyzeWorkspaceMedia(request),
       requestSensitiveActionCode: async (action) =>
         requestWorkspaceSensitiveActionCode(action),
       verifySensitiveActionCode: async (input) =>

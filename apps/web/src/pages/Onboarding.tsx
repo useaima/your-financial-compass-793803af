@@ -461,7 +461,7 @@ export default function Onboarding() {
   };
 
   return (
-    <div data-testid="onboarding-shell" className="relative min-h-screen overflow-hidden bg-background px-4 py-6 md:px-8 md:py-10">
+    <div data-testid="onboarding-shell" role="main" aria-label="Onboarding" className="relative min-h-screen overflow-hidden bg-background px-4 py-6 md:px-8 md:py-10">
       <div className="pointer-events-none absolute inset-x-0 top-0 h-[32rem]">
         <div className="absolute left-1/2 top-[-10rem] h-[28rem] w-[44rem] -translate-x-1/2 rounded-full bg-primary/16 blur-3xl" />
         <div className="absolute right-[8%] top-24 h-56 w-56 rounded-full bg-[hsl(149_53%_35%/0.06)] blur-3xl" />
@@ -488,7 +488,15 @@ export default function Onboarding() {
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 {currentStep.label}
               </p>
-              <div data-testid="onboarding-progress" className="flex items-center gap-2">
+              <div
+                data-testid="onboarding-progress"
+                role="progressbar"
+                aria-valuenow={stepIndex + 1}
+                aria-valuemin={1}
+                aria-valuemax={onboardingSteps.length}
+                aria-label={`Onboarding step ${stepIndex + 1} of ${onboardingSteps.length}`}
+                className="flex items-center gap-2"
+              >
                 {onboardingSteps.map((step, index) => (
                   <div
                     key={step.id}
@@ -505,7 +513,7 @@ export default function Onboarding() {
           </div>
 
           {currentStep.id === "welcome" && (
-            <div className="space-y-8 py-8 text-center md:py-12">
+            <div className="space-y-5 py-5 text-center md:space-y-8 md:py-12">
               <div className="flex justify-center">
                 <BrandLockup
                   align="center"
@@ -519,16 +527,16 @@ export default function Onboarding() {
                 <p className="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">
                   eva onboarding
                 </p>
-                <h1 className="text-4xl font-bold tracking-tight text-foreground md:text-5xl">
-                  Build a workspace that starts with real financial context
+                <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-5xl">
+                  <span className="md:hidden">Set up your money workspace</span><span className="hidden md:inline">Build a workspace that starts with real financial context</span>
                 </h1>
-                <p className="mx-auto max-w-2xl text-base leading-relaxed text-muted-foreground">
-                  Understand your spending, shape better habits, and land in a dashboard that
+                <p className="mx-auto max-w-sm text-sm leading-relaxed text-muted-foreground md:max-w-2xl md:text-base">
+                  <span className="md:hidden">A few focused steps, then your dashboard.</span><span className="hidden md:inline">Understand your spending, shape better habits, and land in a dashboard that
                   already knows what matters next. EVA keeps this setup practical by ending with a
-                  real expense instead of a dead-end welcome screen.
+                  real expense instead of a dead-end welcome screen.</span>
                 </p>
               </div>
-              <div className="grid gap-3 text-left md:grid-cols-3">
+              <div className="hidden gap-3 text-left md:grid md:grid-cols-3">
                 {[
                   "Your account identity is already saved from sign-up.",
                   "Every step autosaves so you can move back safely.",
@@ -857,7 +865,7 @@ export default function Onboarding() {
                 />
               </div>
 
-              <div className="space-y-4 rounded-[1.6rem] border border-border bg-background p-5">
+              <div className="hidden space-y-4 rounded-[1.6rem] border border-border bg-background p-5 md:block">
                 <div className="flex items-center justify-between gap-4">
                   <div>
                     <p className="text-sm font-semibold text-foreground">Optional workspace boost</p>

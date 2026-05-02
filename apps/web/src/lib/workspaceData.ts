@@ -8,6 +8,8 @@ import type {
   BudgetLimit,
   DraftTransaction,
   FinancialEntry,
+  MediaAnalysisRequest,
+  MediaAnalysisResult,
   OnboardingPayload,
   ReceiptForwardingDetails,
   SensitiveActionCodeRequest,
@@ -168,6 +170,10 @@ export async function analyzeReceiptImage(imageDataUrl: string, fileName: string
     image_data_url: imageDataUrl,
     file_name: fileName,
   });
+}
+
+export async function analyzeMedia(request: MediaAnalysisRequest) {
+  return invokeWorkspace<MediaAnalysisResult>("analyze_media", request);
 }
 
 export async function reviewDraftTransaction(input: {

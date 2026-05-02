@@ -6,6 +6,8 @@ import type {
   BudgetLimit,
   DraftTransaction,
   FinancialEntry,
+  MediaAnalysisRequest,
+  MediaAnalysisResult,
   OnboardingPayload,
   ReceiptForwardingDetails,
   SensitiveActionCodeRequest,
@@ -44,6 +46,7 @@ export type PublicUserContextValue = {
   authLoading: boolean;
   authProfileSeed: AuthProfileSeed;
   requiresPasswordSetup: boolean;
+  isAdmin: boolean;
   bootstrap: BootstrapData;
   loading: boolean;
   refreshing: boolean;
@@ -79,6 +82,7 @@ export type PublicUserContextValue = {
   }) => Promise<AffordabilityResult>;
   importCsvTransactions: (csvText: string, fileName: string) => Promise<void>;
   analyzeReceiptImage: (imageDataUrl: string, fileName: string) => Promise<void>;
+  analyzeMedia: (request: MediaAnalysisRequest) => Promise<MediaAnalysisResult>;
   requestSensitiveActionCode: (
     action: SensitiveActionId,
   ) => Promise<SensitiveActionCodeRequest>;
